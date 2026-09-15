@@ -10,6 +10,10 @@ try {
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Open workspace', exact: true }).first().click()
   await page.getByRole('heading', { name: 'Good evening, Devansh.' }).waitFor()
+  await page.getByText('Connected GIS tools', { exact: true }).waitFor()
+  await page.getByText('GIS API connected', { exact: true }).waitFor()
+  assert.equal(await page.getByText('78%', { exact: true }).count(), 0)
+  assert.ok(await page.locator('.dashboard').evaluate(element => element.scrollHeight > element.clientHeight))
   await page.screenshot({ path: 'output/product-dashboard.png', fullPage: true })
 
   const rail = page.locator('.app-rail')
