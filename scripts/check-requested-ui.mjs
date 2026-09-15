@@ -29,6 +29,18 @@ try {
   }
   await page.screenshot({ path: 'output/geo-workspace.png' })
 
+  const geoInput = page.locator('.upload-tile input')
+  await geoInput.setInputFiles('backend/data/demo_before.tif')
+  await page.getByRole('heading', { name: 'Verified file metadata' }).waitFor()
+  await page.getByText('EPSG:32644', { exact: true }).first().waitFor()
+  assert.equal(await page.getByText('640 × 640 px · 4 bands · uint16', { exact: true }).count(), 1)
+  assert.ok((await page.getByText('Computed live', { exact: true }).count()) > 0)
+  await page.screenshot({ path: 'output/geo-connected.png' })
+
+  await geoInput.setInputFiles('public/hero-floodplain.png')
+  await page.getByRole('heading', { name: 'Non-georeferenced image' }).waitFor()
+  await page.getByText('visual inspection only', { exact: true }).waitFor()
+
   await page.getByRole('button', { name: /^Settings/ }).click()
   await page.getByRole('button', { name: /Light Bright office environments/ }).click()
   assert.equal(await page.locator('.product-shell').getAttribute('data-theme'), 'light')
