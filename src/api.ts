@@ -45,6 +45,31 @@ export type WaterChangeResult = {
   trace: AnalysisTrace[]
 }
 
+export type CatalogScene = {
+  id: string
+  source: string
+  date: string
+  cloud: number | null
+  resolution_m: number
+  mode: 'optical' | 'sar'
+  thumbnail: string | null
+}
+
+export type CatalogSearchRequest = {
+  bbox: [number, number, number, number]
+  date_from: string
+  date_to: string
+  sources: string[]
+  max_cloud: number
+  limit: number
+}
+
+export type CatalogSearchResult = {
+  provider: string
+  live: boolean
+  scenes: CatalogScene[]
+}
+
 async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   if (!response.ok) {
@@ -78,4 +103,13 @@ export function analyzeWaterChange(before: File, after: File, greenBand: number,
   body.append('nir_band', String(nirBand))
   body.append('threshold', String(threshold))
   return apiRequest<WaterChangeResult>('/api/analysis/water-change', { method: 'POST', body, signal })
+}
+
+export function searchCatalog(request: CatalogSearchRequest, signal?: AbortSignal) {
+  return apiRequest<CatalogSearchResult>('/api/catalog/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  })
 }

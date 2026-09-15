@@ -76,8 +76,9 @@ async def catalog_search(request: CatalogRequest) -> dict[str, Any]:
         "datetime": f"{request.date_from}T00:00:00Z/{request.date_to}T23:59:59Z",
         "collections": request.sources,
         "limit": request.limit,
-        "query": {"eo:cloud_cover": {"lte": request.max_cloud}},
     }
+    if any("sentinel-2" in source for source in request.sources):
+        payload["query"] = {"eo:cloud_cover": {"lte": request.max_cloud}}
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             response = await client.post("https://earth-search.aws.element84.com/v1/search", json=payload)
@@ -99,7 +100,8 @@ async def catalog_search(request: CatalogRequest) -> dict[str, Any]:
             return {"provider": "Element 84 Earth Search STAC", "live": True, "scenes": items}
     except Exception:
         pass
-    return {"provider": "curated offline catalogue", "live": False, "scenes": _fallback_scenes()}
+    requested_modes = {"sar" if "sentinel-1" in source else "optical" for source in request.sources}
+    return {"provider": "curated offline catalogue", "live": False, "scenes": [scene for scene in _fallback_scenes() if scene["mode"] in requested_modes]}
 
 
 @app.post("/api/measure-area", tags=["GIS"])
