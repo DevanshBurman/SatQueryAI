@@ -23,6 +23,28 @@ export type RasterInspection = {
   statistics: RasterStatistic[]
 }
 
+export type AnalysisTrace = {
+  label: string
+  detail: string
+  status: string
+}
+
+export type WaterChangeResult = {
+  mode: string
+  summary: string
+  beforeWaterHa: number
+  afterWaterHa: number
+  expandedAreaHa: number
+  changePercent: number
+  threshold: number
+  crs: string
+  areaMethod: string
+  beforePreviewPng: string
+  afterPreviewPng: string
+  maskPng: string
+  trace: AnalysisTrace[]
+}
+
 async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   if (!response.ok) {
@@ -46,4 +68,14 @@ export function inspectRaster(file: File, signal?: AbortSignal) {
   const body = new FormData()
   body.append('file', file)
   return apiRequest<RasterInspection>('/api/raster/inspect', { method: 'POST', body, signal })
+}
+
+export function analyzeWaterChange(before: File, after: File, greenBand: number, nirBand: number, threshold: number, signal?: AbortSignal) {
+  const body = new FormData()
+  body.append('before', before)
+  body.append('after', after)
+  body.append('green_band', String(greenBand))
+  body.append('nir_band', String(nirBand))
+  body.append('threshold', String(threshold))
+  return apiRequest<WaterChangeResult>('/api/analysis/water-change', { method: 'POST', body, signal })
 }

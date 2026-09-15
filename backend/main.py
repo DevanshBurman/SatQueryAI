@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from pyproj import Geod
+from pyproj import CRS, Geod
 from rasterio.warp import Resampling, reproject
 
 ROOT = Path(__file__).resolve().parent
@@ -146,8 +146,45 @@ def _mask_png(mask: np.ndarray) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _raster_preview(src: rasterio.io.DatasetReader) -> str:
+    scale = min(1.0, 960 / max(src.width, src.height))
+    out_height, out_width = max(1, round(src.height * scale)), max(1, round(src.width * scale))
+    indexes = [3, 2, 1] if src.count >= 3 else [1, 1, 1]
+    data = src.read(indexes, out_shape=(3, out_height, out_width), masked=True, resampling=Resampling.bilinear)
+    rgb = np.zeros(data.shape, dtype=np.uint8)
+    for index in range(3):
+        band = data[index]
+        valid = band.compressed()
+        if not valid.size:
+            continue
+        low, high = np.percentile(valid, (2, 98))
+        stretched = np.clip((band.filled(low) - low) / max(high - low, 1e-6), 0, 1)
+        rgb[index] = (stretched * 255).astype(np.uint8)
+    image = Image.fromarray(np.moveaxis(rgb, 0, -1), "RGB")
+    buf = io.BytesIO()
+    image.save(buf, "JPEG", quality=88, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _pixel_area_square_metres(src: rasterio.io.DatasetReader) -> tuple[float, str]:
+    if not src.crs:
+        raise HTTPException(422, "The before raster needs a declared CRS for area measurement")
+    pixel_area = abs(src.transform.a * src.transform.e - src.transform.b * src.transform.d)
+    crs = CRS.from_user_input(src.crs)
+    if crs.is_projected:
+        factor = crs.axis_info[0].unit_conversion_factor or 1.0
+        return pixel_area * factor * factor, f"Projected pixel area converted from {crs.axis_info[0].unit_name}"
+    centre_col, centre_row = src.width / 2, src.height / 2
+    corners = [src.transform * (centre_col + dx, centre_row + dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1))]
+    lons, lats = zip(*corners)
+    area, _ = Geod(ellps="WGS84").polygon_area_perimeter(lons, lats)
+    return abs(area), "Geodesic pixel area estimated at raster centre"
+
+
 def _analyze_paths(before_path: Path, after_path: Path, green_band: int = 2, nir_band: int = 4, threshold: float = 0.08) -> dict[str, Any]:
     with rasterio.open(before_path) as before, rasterio.open(after_path) as after:
+        if not before.crs or not after.crs:
+            raise HTTPException(422, "Both rasters need a declared CRS for alignment and area measurement")
         if max(green_band, nir_band) > min(before.count, after.count):
             raise HTTPException(422, "Selected band is missing from one raster")
         green_a = before.read(green_band).astype("float32")
@@ -165,19 +202,20 @@ def _analyze_paths(before_path: Path, after_path: Path, green_band: int = 2, nir
         ndwi_b = (green_b - nir_b) / (green_b + nir_b + 1e-6)
         water_a, water_b = ndwi_a > threshold, ndwi_b > threshold
         expansion = water_b & ~water_a
-        pixel_area = abs(before.transform.a * before.transform.e)
-        if not before.crs or before.crs.is_geographic:
-            pixel_area = 100.0
+        pixel_area, area_method = _pixel_area_square_metres(before)
         before_ha = float(water_a.sum() * pixel_area / 10000)
         after_ha = float(water_b.sum() * pixel_area / 10000)
         expanded_ha = float(expansion.sum() * pixel_area / 10000)
         change_pct = ((after_ha - before_ha) / before_ha * 100) if before_ha else 0
+        direction = "increased" if change_pct >= 0 else "decreased"
         return {
             "mode": "deterministic GIS calculation",
-            "summary": f"Surface-water extent increased by {max(change_pct, 0):.1f}% across the aligned scene pair.",
+            "summary": f"Surface-water extent {direction} by {abs(change_pct):.1f}% across the aligned scene pair.",
             "beforeWaterHa": round(before_ha, 2), "afterWaterHa": round(after_ha, 2),
             "expandedAreaHa": round(expanded_ha, 2), "changePercent": round(change_pct, 1),
-            "threshold": threshold, "crs": str(before.crs), "maskPng": _mask_png(expansion),
+            "threshold": threshold, "crs": str(before.crs), "areaMethod": area_method,
+            "beforePreviewPng": _raster_preview(before), "afterPreviewPng": _raster_preview(after),
+            "maskPng": _mask_png(expansion),
             "trace": [
                 _trace("Inputs validated", f"Two {before.width}×{before.height} rasters; CRS {before.crs}"),
                 _trace("Scenes aligned", "After scene reprojected to the before-scene grid"),
