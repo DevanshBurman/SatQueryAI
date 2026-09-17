@@ -53,6 +53,7 @@ export type CatalogScene = {
   resolution_m: number
   mode: 'optical' | 'sar'
   thumbnail: string | null
+  bbox: [number, number, number, number] | null
 }
 
 export type CatalogSearchRequest = {

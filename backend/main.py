@@ -51,11 +51,11 @@ def _trace(label: str, detail: str, status: str = "complete") -> dict[str, str]:
     return {"label": label, "detail": detail, "status": status}
 
 
-def _fallback_scenes() -> list[dict[str, Any]]:
+def _fallback_scenes(bbox: list[float]) -> list[dict[str, Any]]:
     return [
-        {"id": "S2_PRE_FLOOD_20240718", "source": "Sentinel-2 L2A", "date": "2024-07-18", "cloud": 6.2, "resolution_m": 10, "mode": "optical", "thumbnail": None},
-        {"id": "S2_POST_FLOOD_20240827", "source": "Sentinel-2 L2A", "date": "2024-08-27", "cloud": 3.8, "resolution_m": 10, "mode": "optical", "thumbnail": None},
-        {"id": "S1_POST_FLOOD_20240829", "source": "Sentinel-1 GRD", "date": "2024-08-29", "cloud": None, "resolution_m": 10, "mode": "sar", "thumbnail": None},
+        {"id": "S2_PRE_FLOOD_20240718", "source": "Sentinel-2 L2A", "date": "2024-07-18", "cloud": 6.2, "resolution_m": 10, "mode": "optical", "thumbnail": None, "bbox": bbox},
+        {"id": "S2_POST_FLOOD_20240827", "source": "Sentinel-2 L2A", "date": "2024-08-27", "cloud": 3.8, "resolution_m": 10, "mode": "optical", "thumbnail": None, "bbox": bbox},
+        {"id": "S1_POST_FLOOD_20240829", "source": "Sentinel-1 GRD", "date": "2024-08-29", "cloud": None, "resolution_m": 10, "mode": "sar", "thumbnail": None, "bbox": bbox},
     ]
 
 
@@ -95,13 +95,14 @@ async def catalog_search(request: CatalogRequest) -> dict[str, Any]:
                 "resolution_m": 10,
                 "mode": "sar" if "sentinel-1" in collection else "optical",
                 "thumbnail": (assets.get("thumbnail") or {}).get("href"),
+                "bbox": feature.get("bbox"),
             })
         if items:
             return {"provider": "Element 84 Earth Search STAC", "live": True, "scenes": items}
     except Exception:
         pass
     requested_modes = {"sar" if "sentinel-1" in source else "optical" for source in request.sources}
-    return {"provider": "curated offline catalogue", "live": False, "scenes": [scene for scene in _fallback_scenes() if scene["mode"] in requested_modes]}
+    return {"provider": "curated offline catalogue", "live": False, "scenes": [scene for scene in _fallback_scenes(request.bbox) if scene["mode"] in requested_modes]}
 
 
 @app.post("/api/measure-area", tags=["GIS"])
