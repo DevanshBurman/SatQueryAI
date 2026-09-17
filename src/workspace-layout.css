@@ -1,0 +1,202 @@
+/* Workspace-only layout contract. Keep landing typography and generic selectors out. */
+.satquery-app {
+  --rail: 68px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  grid-template-rows: 58px minmax(0, 1fr);
+  height: 100dvh;
+  background: #f7f9fc;
+}
+.satquery-app :is(h1,h2,h3,h4,p,b,small,span,button,input,textarea,select) { font-family: inherit; }
+.satquery-app :is(h1,h2,h3,h4) { line-height: 1.2; }
+.satquery-app button { cursor: pointer; }
+.satquery-app button:focus-visible, .satquery-app input:focus-visible { outline: 2px solid #1261ed; outline-offset: 3px; }
+.satquery-app svg { flex-shrink: 0; }
+.satquery-app footer { height: auto; margin: 0; }
+.satquery-app footer span:last-child { margin-left: 0; }
+.satquery-app .crumb { display: block; position: static; width: auto; height: auto; padding: 0; margin: 0; background: none; border: 0; }
+.satquery-app .sq-brand-mark { display: inline-block; position: relative; width: 28px; height: 28px; flex: 0 0 28px; }
+.satquery-app .sq-brand-mark i { position:absolute; width:17px; height:22px; top:2px; left:1px; border-radius:80% 22% 75% 25%; background:#ff984f; transform:rotate(15deg); }
+.satquery-app .sq-brand-mark i+i { left:13px; top:5px; background:#ffb87d; transform:rotate(195deg); }
+.satquery-app .workspace-sidebar { width:var(--rail); grid-row:1 / -1; background:linear-gradient(165deg,#263e50,#102638); }
+.satquery-app .workspace-sidebar:focus-within { width:var(--rail); box-shadow:none; }
+.satquery-app .workspace-sidebar:is(:hover,:has(:focus-visible)) { width:218px; box-shadow:10px 0 28px #07172838; }
+.satquery-app .workspace-sidebar:not(:hover):not(:has(:focus-visible)) :is(nav button>span,.brand-button>span:last-child,.sidebar-bottom>button>span:not(:first-child),.profile>b,.profile>svg) { opacity:0; }
+.satquery-app .workspace-sidebar:has(:focus-visible) :is(nav button>span,.brand-button>span:last-child,.sidebar-bottom>button>span:not(:first-child),.profile>b,.profile>svg) { opacity:1; }
+.satquery-app .sidebar-brand { height:58px; min-height:58px; padding:0 20px; }
+.satquery-app .brand-button { gap:20px; }
+.satquery-app .workspace-sidebar nav { padding:22px 0 0; gap:5px; }
+.satquery-app .workspace-sidebar nav button,
+.satquery-app .sidebar-bottom>button {
+  display:flex; flex-direction:row; justify-content:flex-start; align-items:center;
+  width:100%; height:58px; min-height:58px; padding:0; gap:0;
+  border:0; text-align:left; font-size:13px; background:transparent;
+}
+.satquery-app .workspace-sidebar nav button>svg,
+.satquery-app .sidebar-bottom>button>svg {
+  width:22px; height:22px; margin:0 23px; flex:0 0 22px; stroke-width:1.8;
+}
+.satquery-app .workspace-sidebar nav button.active { width:calc(100% - 6px); background:#edf4ff; border-radius:0 10px 10px 0; }
+.satquery-app .workspace-sidebar nav button>span { flex:none; }
+.satquery-app .sidebar-bottom { padding:8px 0 14px; }
+.satquery-app .sidebar-bottom .profile>span { flex:0 0 30px; width:30px; height:30px; margin:0 19px; }
+.satquery-app .sidebar-bottom .profile>svg { margin:0 0 0 auto; width:16px; }
+.satquery-app .rail-peek { bottom:94px; width:12px; }
+.satquery-app .workspace-header { height:58px; padding:0 22px; gap:20px; grid-template-columns:minmax(280px,1fr) auto minmax(220px,1fr); }
+.satquery-app .project-identity { min-width:0; gap:9px; }
+.satquery-app .project-identity>b { font-size:18px; letter-spacing:-.5px; }
+.satquery-app .project-identity>i { margin:0 10px; }
+.satquery-app .project-identity>button { padding:0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.satquery-app .project-tabs, .satquery-app .project-tabs span { gap:20px; }
+.satquery-app .project-tabs button { font-size:13px; padding:0 4px; }
+.satquery-app .header-context { gap:12px; font-size:11px; white-space:nowrap; }
+.satquery-app .header-context>i { margin:0; }
+.satquery-app .analysis-home { grid-template-columns:minmax(0,1fr) 270px; grid-template-rows:minmax(0,1fr) 72px; }
+.satquery-app .analysis-job-main { padding:26px 28px 22px; display:flex; flex-direction:column; min-width:0; min-height:0; }
+.satquery-app .analysis-job-heading>span, .satquery-app .inputs-heading>div>span { display:none; }
+.satquery-app .analysis-job-heading h1 { margin:0 0 8px; font-size:32px; font-weight:650; letter-spacing:-1.15px; }
+.satquery-app .analysis-job-heading p { font-size:14px; margin:0 0 22px; }
+.satquery-app .job-list { display:grid; grid-template-rows:repeat(3,minmax(140px,1fr)); gap:12px; flex:1; max-height:660px; }
+.satquery-app .job-row { min-height:0; min-width:0; grid-template-columns:62px minmax(165px,.85fr) minmax(270px,1.25fr); gap:14px; padding:16px; border-color:#e0e7f0; border-radius:8px; box-shadow:none; }
+.satquery-app .job-row.selected { background:linear-gradient(100deg,#eaf3ff,#f5f9ff); border-color:#c5dcff; }
+.satquery-app .job-row:hover { border-color:#8eb8f4; }
+.satquery-app .job-icon { width:60px; height:60px; }
+.satquery-app .job-icon svg { width:29px; height:29px; stroke-width:1.8; }
+.satquery-app .job-copy>b { font-size:22px; line-height:1.15; gap:4px; letter-spacing:-.6px; }
+.satquery-app .job-copy>small { font-size:14px; line-height:1.4; margin:8px 0; }
+.satquery-app .job-copy>em { font-size:11px; padding:3px 8px; }
+.satquery-app .job-diagram { width:100%; min-width:0; gap:10px; }
+.satquery-app .job-diagram .scene.one { max-width:none; }
+.satquery-app .workflow-preview { width:100%; height:86px; border-radius:4px; object-fit:cover; }
+.satquery-app .flow-node { min-width:0; flex:1; }
+.satquery-app .flow-node>small { display:block; white-space:normal; text-align:center; font-size:10px; line-height:1.25; min-height:24px; }
+.satquery-app .job-diagram>svg { width:26px; stroke-width:1.4; }
+.satquery-app .job-diagram .scene { width:100%; max-width:145px; height:86px; }
+.satquery-app .job-diagram .scene.before,.satquery-app .job-diagram .scene.after { width:100%; }
+.satquery-app .job-diagram .answer-card { width:100%; height:86px; }
+.satquery-app .job-diagram .change-map,.satquery-app .job-diagram .fusion-map { width:100%!important; height:86px; filter:none; background:#e5edf3; }
+.satquery-app .job-diagram .sensor-pair { flex:.75; min-width:0; }
+.satquery-app .job-diagram .sensor-pair .flow-node { height:46px; }
+.satquery-app .job-diagram .sensor-pair .scene { width:65px; height:41px; }
+.satquery-app .sensor-pair small { font-size:10px; min-height:0; }
+.satquery-app .fusion-brace { font-size:56px; }
+.satquery-app .analysis-inputs { padding:27px 20px 18px; }
+.satquery-app .inputs-heading { align-items:center; margin:5px 0 18px; gap:8px; }
+.satquery-app .inputs-heading h2 { font-size:16px; font-weight:650; margin:0; }
+.satquery-app .inputs-heading>b { white-space:nowrap; font-size:10px; padding:3px 6px; }
+.satquery-app .observation-image { height:132px; }
+.satquery-app .selected-observation { margin-bottom:24px; }
+.satquery-app .selected-observation h3 { font-size:13px; margin:10px 24px 4px 0; }
+.satquery-app .selected-observation p,.satquery-app .selected-observation small { font-size:11px; }
+.satquery-app .selected-observation>button { top:137px; }
+.satquery-app .add-observations { margin-top:8px; }
+.satquery-app .add-observations small { line-height:1.3; }
+.satquery-app .analysis-builder { grid-template-columns:minmax(0,1fr) auto; gap:16px; padding:12px 22px; }
+.satquery-app .analysis-prompt { min-width:0; height:46px; }
+.satquery-app .analysis-prompt input { min-width:0; font-size:13px; }
+.satquery-app .builder-summary { display:flex; }
+.satquery-app .builder-summary>span { display:none; }
+.satquery-app .builder-summary .primary-button { height:46px; min-width:200px; font-size:13px; }
+.satquery-app .projects-page,.satquery-app .simple-page { padding:28px 34px; }
+.satquery-app .page-title-row h1 { font-size:32px; margin:6px 0; }
+.satquery-app .projects-layout { grid-template-columns:minmax(0,1fr) 285px; gap:22px; }
+.satquery-app .project-card.featured { min-height:205px; }
+.satquery-app .project-card { min-height:125px; }
+.satquery-app .project-card h2 { font-size:18px; }
+.satquery-app .start-card { padding:22px; }
+.satquery-app .start-card h2 { font-size:24px; }
+.satquery-app .start-card p { font-size:13px; }
+.satquery-app .layer-illustration { height:160px; }
+.satquery-app .data-page { grid-template-columns:280px minmax(0,1fr) 280px; }
+.satquery-app .layer-row { grid-template-columns:20px minmax(0,1fr) 32px; gap:6px; }
+.satquery-app .layer-row>span { grid-column:2 / 4; }
+.satquery-app .layer-row input { grid-column:2; min-width:0; }
+.satquery-app .layer-row em { grid-column:3; }
+.satquery-app .filter-section { padding:12px; }
+.satquery-app .filter-section label:not(.field-label) { padding:6px; }
+.satquery-app .filter-panel { padding-top:20px; }
+.satquery-app .plan-page { grid-template-columns:minmax(0,1fr) 270px; grid-template-rows:minmax(0,1fr) 70px; }
+.satquery-app .plan-page>main { padding:22px 28px; }
+.satquery-app .plan-list article { grid-template-columns:30px 40px minmax(140px,1fr) minmax(140px,1fr) 65px; gap:10px; }
+.satquery-app .io { padding-left:12px; }
+.satquery-app .io span { grid-template-columns:42px 1fr; }
+.satquery-app .plan-page main>h1 { font-size:30px; }
+.satquery-app .plan-page footer { padding:12px 22px; }
+.satquery-app .plan-list article { min-height:84px; }
+.satquery-app .step-copy h2 { font-size:15px; }
+.satquery-app .selected-evidence { padding:24px 20px; }
+@media (min-width:1500px) {
+  .satquery-app { --rail:78px; grid-template-rows:64px minmax(0,1fr); }
+  .satquery-app .workspace-header,.satquery-app .sidebar-brand { height:64px; }
+  .satquery-app .workspace-sidebar nav button>svg,.satquery-app .sidebar-bottom>button>svg { margin:0 28px; }
+  .satquery-app .sidebar-brand { padding:0 25px; }
+  .satquery-app .analysis-home { grid-template-columns:minmax(0,1fr) 320px; grid-template-rows:minmax(0,1fr) 82px; }
+  .satquery-app .analysis-job-main { padding:32px 34px 26px; }
+  .satquery-app .analysis-job-heading h1 { font-size:38px; }
+  .satquery-app .job-row { grid-template-columns:80px minmax(230px,.85fr) minmax(320px,1.25fr); gap:20px; padding:20px; }
+  .satquery-app .job-icon { width:76px; height:76px; }
+  .satquery-app .job-copy>b { font-size:27px; }
+  .satquery-app .job-copy>small { font-size:16px; }
+  .satquery-app .job-diagram .scene,.satquery-app .job-diagram .change-map,.satquery-app .job-diagram .fusion-map,.satquery-app .answer-card { height:105px; }
+  .satquery-app .workflow-preview { height:105px; }
+  .satquery-app .observation-image { height:158px; }
+  .satquery-app .selected-observation>button { top:163px; }
+}
+@media (max-width:1350px) {
+  .satquery-app .header-context>span,.satquery-app .header-context>i { display:none; }
+  .satquery-app .workspace-header { grid-template-columns:minmax(280px,1fr) auto minmax(155px,1fr); }
+  .satquery-app .analysis-home { grid-template-columns:minmax(0,1fr) 252px; }
+  .satquery-app .analysis-job-main { padding:22px; }
+  .satquery-app .job-row { grid-template-columns:52px minmax(160px,.8fr) minmax(240px,1.2fr); gap:12px; padding:14px; }
+  .satquery-app .job-icon { width:50px; height:50px; }
+  .satquery-app .job-copy>b { font-size:20px; }
+  .satquery-app .job-copy>small { font-size:13px; }
+  .satquery-app .analysis-inputs { padding:24px 16px; }
+  .satquery-app .inputs-heading>b { display:none; }
+}
+@media (max-height:750px) {
+  .satquery-app .analysis-job-main { padding-top:20px; padding-bottom:16px; }
+  .satquery-app .analysis-job-heading h1 { font-size:29px; }
+  .satquery-app .analysis-job-heading p { margin-bottom:16px; }
+  .satquery-app .job-list { grid-template-rows:repeat(3,minmax(130px,1fr)); gap:10px; }
+  .satquery-app .observation-image { height:108px; }
+  .satquery-app .selected-observation>button { top:113px; }
+  .satquery-app .selected-observation { margin-bottom:18px; }
+}
+@media (max-width:1050px) {
+  .satquery-app .project-identity>b,.satquery-app .project-identity>i,.satquery-app .header-context>b { display:none; }
+  .satquery-app .workspace-header { grid-template-columns:1fr auto 1fr; }
+  .satquery-app .analysis-home { grid-template-columns:minmax(0,1fr) 225px; }
+  .satquery-app .job-row { grid-template-columns:45px minmax(130px,1fr) minmax(170px,1fr); gap:8px; padding:12px; }
+  .satquery-app .job-icon { width:42px; height:42px; }
+  .satquery-app .job-diagram { gap:5px; }
+  .satquery-app .job-diagram .sensor-pair .scene { width:42px; }
+  .satquery-app .job-copy>b { font-size:18px; }
+  .satquery-app .job-diagram>svg { width:18px; }
+  .satquery-app .data-page { grid-template-columns:240px minmax(0,1fr); overflow:auto; }
+  .satquery-app .visual-panel { grid-column:1 / -1; height:auto; }
+}
+@media (max-width:760px) {
+  .satquery-app { --rail:56px; }
+  .satquery-app .sidebar-brand { padding:0 14px; }
+  .satquery-app .workspace-sidebar nav button>svg,.satquery-app .sidebar-bottom>button>svg { margin:0 17px; }
+  .satquery-app .workspace-header { padding:0 12px; gap:10px; grid-template-columns:1fr auto; }
+  .satquery-app .header-context { display:none; }
+  .satquery-app .project-identity>button { max-width:130px; font-size:11px; }
+  .satquery-app .project-tabs,.satquery-app .project-tabs span { gap:10px; }
+  .satquery-app .analysis-home { display:flex; flex-direction:column; overflow:auto; }
+  .satquery-app .analysis-job-main { overflow:visible; flex:none; padding:20px 14px; }
+  .satquery-app .job-list { flex:none; }
+  .satquery-app .job-row { grid-template-columns:42px 1fr; min-height:150px; }
+  .satquery-app .job-diagram { display:none; }
+  .satquery-app .analysis-inputs { overflow:visible; border-top:1px solid var(--line); }
+  .satquery-app .analysis-builder { position:sticky; bottom:0; display:flex; flex-wrap:wrap; padding:10px; }
+  .satquery-app .analysis-prompt { flex:1 0 100%; }
+  .satquery-app .builder-summary { margin-left:auto; }
+  .satquery-app .projects-layout { grid-template-columns:1fr; }
+  .satquery-app .plan-page { display:block; overflow:auto; }
+  .satquery-app .plan-list article { grid-template-columns:30px 1fr 65px; padding:12px 0; }
+  .satquery-app .plan-list .step-icon,.satquery-app .plan-list .io { display:none; }
+}

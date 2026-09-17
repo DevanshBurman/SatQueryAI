@@ -3,12 +3,13 @@ import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bot, CalendarDays, Check, ChevronDown,
   ChevronLeft, ChevronRight, CircleHelp, Cloud, Database, Download, Eye, FileText, Folder,
   Gauge, History, Home, Image as ImageIcon, Layers3, LocateFixed, Map, MapPin,
-  MessageSquareText, MoreHorizontal, Pencil, Play, Plus, Radar, RotateCw, Search, Settings,
-  Sparkles, Upload, User, WandSparkles, Waves, X,
+  MessageSquareText, MoreHorizontal, Pencil, Play, Plus, RotateCw, Search, Settings,
+  Sparkles, Upload, User, Waves, X,
 } from 'lucide-react'
 import maplibregl, { type Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './analysis-workspace.css'
+import './workspace-layout.css'
 import { analyzeWaterChange, getServiceHealth, searchCatalog, type CatalogScene, type ServiceHealth, type WaterChangeResult } from './api'
 
 type Section = 'projects' | 'data' | 'analysis' | 'results' | 'library' | 'activity' | 'settings'
@@ -27,7 +28,7 @@ const PREPARED_SCENES: CatalogScene[] = [
   { id: 'L9_WAYANAD_2024_08_05', source: 'Landsat 8/9', date: '2024-08-05', cloud: 8, resolution_m: 30, mode: 'optical', thumbnail: null, bbox: [76.02, 11.48, 76.25, 11.72] },
 ]
 
-function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i /><i /></span> }
+function BrandMark() { return <span className="sq-brand-mark" aria-hidden="true"><i /><i /></span> }
 function PreparedBadge({ children = 'Prepared demonstration' }: { children?: ReactNode }) { return <span className="prepared-badge"><Sparkles />{children}</span> }
 
 function SideNavigation({ current, navigate, home }: { current: Section; navigate: (section: Section) => void; home: () => void }) {
@@ -95,10 +96,31 @@ function DataPage({ proceed }: { proceed: (scenes: CatalogScene[]) => void }) {
 }
 
 const ANALYSES = [
-  { id: 'visual', icon: WandSparkles, title: 'Visual query', tag: 'Ask one scene', copy: 'Ask about one optical or SAR observation and ground the answer visually.', chips: ['Optical', 'SAR'], color: 'blue' },
-  { id: 'temporal', icon: History, title: 'Temporal change', tag: 'Compare dates', copy: 'Align before and after observations, calculate change, and inspect evidence.', chips: ['Optical', 'Deterministic'], color: 'orange' },
-  { id: 'fusion', icon: Radar, title: 'Sensor fusion', tag: 'Optical + SAR', copy: 'Cross-check surface context with cloud-independent radar evidence.', chips: ['Sentinel-2', 'Sentinel-1'], color: 'violet' },
+  { id: 'visual', icon: Eye, title: 'Visual query', tag: 'Optical or SAR', copy: 'Ask about one optical or SAR observation.', color: 'blue' },
+  { id: 'temporal', icon: Activity, title: 'Temporal change', tag: 'Two or more dates', copy: 'Compare the same area across dates.', color: 'orange' },
+  { id: 'fusion', icon: Layers3, title: 'Sensor fusion', tag: 'Optical + radar', copy: 'Combine optical and radar evidence.', color: 'violet' },
 ] as const
+
+function WorkflowPreview({ kind }: { kind: 'visual' | 'temporal' | 'fusion' }) {
+  return <svg className={`workflow-preview ${kind}`} viewBox="0 0 190 105" role="img" aria-label={`Illustrative ${kind} output, not a measured result`}>
+    <rect width="190" height="105" fill={kind === 'fusion' ? '#46604f' : '#e4ebf0'} />
+    <g fill="none" stroke={kind === 'fusion' ? '#829580' : '#fff'} strokeWidth="1.3" opacity=".8">
+      <path d="M0 18L24 27 49 16 76 31 110 12 146 21 190 8M0 68L27 61 46 81 82 67 101 81 137 57 190 73M19 0L32 30 20 55 36 105M68 0L58 39 79 57 65 105M146 0L135 30 158 64 141 105M0 92L53 87 99 97 150 86 190 98" />
+      <path d="M0 46L35 40 64 48 93 35 126 46 150 37 190 47M101 0L89 23 108 53 95 105" strokeWidth="2" />
+    </g>
+    {kind === 'visual' ? <>
+      <path d="M37 34L59 29 72 40 67 56 48 64 30 51Z" fill="#91b9fb" fillOpacity=".7" stroke="#3379ec" strokeWidth="1.5" />
+      <path d="M113 0V105" stroke="#cfdbe7" /><rect x="119" y="13" width="64" height="79" rx="3" fill="white" />
+      <text x="125" y="27" fontSize="7" fill="#263e57" fontWeight="600">Selected region</text>
+      <text x="125" y="43" fontSize="6" fill="#667d94">Inspect features</text><text x="125" y="55" fontSize="6" fill="#667d94">Review evidence</text><text x="125" y="67" fontSize="6" fill="#667d94">Ask a follow-up</text>
+    </> : <>
+      <path d="M88 -5L79 14 93 26 80 40 97 53 88 67 109 82 101 110" stroke={kind === 'fusion' ? '#52b6fc' : '#85b9e1'} strokeWidth="12" fill="none" />
+      <path d="M89 27L114 22 129 32M93 54L64 60 48 48M105 82L131 73 153 83" stroke={kind === 'fusion' ? '#52b6fc' : '#85b9e1'} strokeWidth="6" fill="none" />
+      <path d="M78 10L70 19 84 28 70 41 80 52M88 60L78 70 97 83 89 96M64 56L48 42 38 48" stroke={kind === 'fusion' ? '#91d3ff' : '#e58c9c'} strokeWidth="6" fill="none" />
+      <rect x="6" y="86" width="71" height="13" rx="2" fill="#fff" fillOpacity=".92" /><circle cx="12" cy="92" r="2" fill={kind === 'fusion' ? '#52b6fc' : '#e58c9c'} /><text x="18" y="95" fontSize="7" fill="#475f77">Example overlay</text>
+    </>}
+  </svg>
+}
 
 function ChooseAnalysis({ choose, openData, observations }: { choose: () => void; openData: () => void; observations: CatalogScene[] }) {
   const [selectedJob, setSelectedJob] = useState('temporal')
@@ -111,9 +133,9 @@ function ChooseAnalysis({ choose, openData, observations }: { choose: () => void
   const toggleAsset = (id: string) => setSelectedAssets(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id])
   return <div className="analysis-home">
     <main className="analysis-job-main"><div className="analysis-job-heading"><span>ANALYSIS</span><h1>Choose an analysis</h1><p>Turn satellite data into insight. Select a workflow to get started.</p></div>
-      <div className="job-list">{ANALYSES.map(({ id, icon: Icon, title, copy, chips, color }) => <button key={id} className={`job-row ${color} ${selectedJob === id ? 'selected' : ''}`} onClick={() => setSelectedJob(id)}>
-        <span className="job-icon"><Icon /></span><span className="job-copy"><b>{title}<ChevronRight /></b><small>{copy}</small><em>{chips.join(' or ')}</em></span>
-        <span className={`job-diagram diagram-${id}`}>{id === 'visual' ? <><span className="flow-node"><i className="scene one" /><small>Single observation</small></span><ArrowRight /><span className="flow-node"><i className="answer-card"><span /><span /><span /></i><small>Answer and visual context</small></span></> : id === 'temporal' ? <><span className="flow-node"><i className="scene before" /><small>Earlier date</small></span><b>•••</b><span className="flow-node"><i className="scene after" /><small>Later date</small></span><ArrowRight /><span className="flow-node"><i className="change-map" /><small>Change map and insights</small></span></> : <><span className="sensor-pair"><span className="flow-node"><i className="scene optical" /><small>Optical</small></span><span className="flow-node"><i className="scene sar" /><small>SAR</small></span></span><b className="fusion-brace">{'}'}</b><ArrowRight /><span className="flow-node"><i className="fusion-map" /><small>Combined analysis and insights</small></span></>}</span>
+      <div className="job-list">{ANALYSES.map(({ id, icon: Icon, title, copy, tag, color }) => <button key={id} aria-pressed={selectedJob === id} className={`job-row ${color} ${selectedJob === id ? 'selected' : ''}`} onClick={() => setSelectedJob(id)}>
+        <span className="job-icon"><Icon /></span><span className="job-copy"><b>{title}<ChevronRight /></b><small>{copy}</small><em>{tag}</em></span>
+        <span className={`job-diagram diagram-${id}`} title="Workflow illustrations — not analysis results">{id === 'visual' ? <><span className="flow-node"><i className="scene one" /><small>Single observation</small></span><ArrowRight /><span className="flow-node"><WorkflowPreview kind="visual" /><small>Answer and visual context</small></span></> : id === 'temporal' ? <><span className="flow-node"><i className="scene before" /><small>Earlier date</small></span><b>···</b><span className="flow-node"><i className="scene after" /><small>Later date</small></span><ArrowRight /><span className="flow-node"><WorkflowPreview kind="temporal" /><small>Change map and insights</small></span></> : <><span className="sensor-pair"><span className="flow-node"><i className="scene optical" /><small>Optical</small></span><span className="flow-node"><i className="scene sar" /><small>SAR</small></span></span><b className="fusion-brace">{'}'}</b><ArrowRight /><span className="flow-node"><WorkflowPreview kind="fusion" /><small>Combined analysis and insights</small></span></>}</span>
       </button>)}</div>
     </main>
     <aside className="analysis-inputs"><div className="inputs-heading"><div><span>INPUTS</span><h2>Selected observations</h2></div><b>{selectedCount} ready</b></div>
