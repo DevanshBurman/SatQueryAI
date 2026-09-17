@@ -69,7 +69,7 @@ function DataMap({ bbox }: { bbox: [number, number, number, number] }) {
   return <div className="map-stage"><div ref={element} /><div className="imagery-overlay" /><div className="map-search"><Search /><input aria-label="Search map" placeholder="Search for a place, coordinates, or scene ID…" /></div><button className="locate-button"><LocateFixed /></button><div className="scale-bar">5 km</div><div className="mini-map"><div /></div></div>
 }
 
-function DataPage({ proceed }: { proceed: () => void }) {
+function DataPage({ proceed }: { proceed: (scenes: CatalogScene[]) => void }) {
   const [sources, setSources] = useState({ sentinel2: true, landsat: true, sentinel1: true })
   const [maxCloud, setMaxCloud] = useState(30), [preset, setPreset] = useState('true')
   const [scenes, setScenes] = useState<CatalogScene[]>(PREPARED_SCENES)
@@ -91,7 +91,7 @@ function DataPage({ proceed }: { proceed: () => void }) {
     <section className="filter-section observation-filter"><header><span><b>2</b>Observation</span><ChevronDown /></header><label className="field-label"><CalendarDays />Jan 2024 — Aug 2024<ChevronDown /></label><label className="field-label"><Map />Intersects with AOI<ChevronDown /></label><div className="cloud-row"><span><Cloud />Cloud</span><b>0 — {maxCloud}%</b></div><input aria-label="Maximum cloud cover" type="range" min="0" max="100" value={maxCloud} onChange={event => setMaxCloud(Number(event.target.value))} /><button className="search-catalog" onClick={runSearch} disabled={catalogStatus === 'loading'}>{catalogStatus === 'loading' ? <RotateCw className="spin" /> : <Search />}{catalogStatus === 'loading' ? 'Searching…' : 'Search this area'}</button></section>
     <div className="results-heading"><b>{scenes.length} observations</b><span>{catalogStatus === 'live' ? 'Live STAC' : catalogStatus === 'fallback' ? 'Prepared fallback' : 'Ready to search'}</span></div><div className="observation-list">{scenes.slice(0, 5).map((scene, index) => <button key={scene.id}><span className={`scene-thumb ${scene.mode} scene-${index}`} style={scene.thumbnail ? { backgroundImage: `url(${scene.thumbnail})` } : undefined} /><span><em className={scene.mode}>{scene.mode === 'sar' ? 'SAR' : 'Optical'}</em><b>{scene.source}</b><small>{scene.date} · {scene.resolution_m} m {scene.cloud == null ? '· VV + VH' : `· Cloud ${Math.round(scene.cloud)}%`}</small></span><MoreHorizontal /></button>)}</div></aside>
     <DataMap bbox={bbox} /><aside className="visual-panel"><section><header><span><b>3</b>Visualization</span><ChevronDown /></header><h4>Optical presets</h4><div className="preset-grid">{[['true','True color'],['false','False color'],['ndvi','NDVI'],['ndwi','NDWI'],['ndbi','NDBI']].map(([id,label]) => <button key={id} className={`${id} ${preset === id ? 'active' : ''}`} onClick={() => setPreset(id)}><span>{preset === id && <Check />}</span><b>{label}</b></button>)}</div><h4 className="sar-title">SAR presets</h4><div className="preset-grid sar-presets">{[['vv','VV'],['vh','VH'],['vvvh','VV/VH composite']].map(([id,label]) => <button key={id} className={id} onClick={() => setPreset(id)}><span /><b>{label}</b></button>)}</div><p className="preset-note"><CircleHelp /> Presets change how sensor bands are rendered; they do not invent new measurements.</p></section>
-      <section className="layer-section"><header><span><b>4</b>Project layers</span><ChevronDown /></header>{layers.map(layer => <div className="layer-row" key={layer.id}><button onClick={() => updateLayer(layer.id, { visible: !layer.visible })}><Eye className={layer.visible ? '' : 'muted'} /></button><span><b>{layer.title}</b><small>{layer.subtitle}</small></span><input aria-label={`${layer.title} opacity`} type="range" min="0" max="100" value={layer.opacity} onChange={event => updateLayer(layer.id, { opacity: Number(event.target.value) })} /><em>{layer.opacity}%</em></div>)}<button className="primary-button wide" onClick={proceed}>Add {layers.length} layers to project<ArrowRight /></button></section></aside></div>
+      <section className="layer-section"><header><span><b>4</b>Project layers</span><ChevronDown /></header>{layers.map(layer => <div className="layer-row" key={layer.id}><button onClick={() => updateLayer(layer.id, { visible: !layer.visible })}><Eye className={layer.visible ? '' : 'muted'} /></button><span><b>{layer.title}</b><small>{layer.subtitle}</small></span><input aria-label={`${layer.title} opacity`} type="range" min="0" max="100" value={layer.opacity} onChange={event => updateLayer(layer.id, { opacity: Number(event.target.value) })} /><em>{layer.opacity}%</em></div>)}<button className="primary-button wide" onClick={() => proceed(scenes.slice(0, 3))}>Add {layers.length} layers to project<ArrowRight /></button></section></aside></div>
 }
 
 const ANALYSES = [
@@ -100,12 +100,12 @@ const ANALYSES = [
   { id: 'fusion', icon: Radar, title: 'Sensor fusion', tag: 'Optical + SAR', copy: 'Cross-check surface context with cloud-independent radar evidence.', chips: ['Sentinel-2', 'Sentinel-1'], color: 'violet' },
 ] as const
 
-function ChooseAnalysis({ choose, openData }: { choose: () => void; openData: () => void }) {
+function ChooseAnalysis({ choose, openData, observations }: { choose: () => void; openData: () => void; observations: CatalogScene[] }) {
   const [selectedJob, setSelectedJob] = useState('temporal')
   const [sourceOpen, setSourceOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [uploads, setUploads] = useState<string[]>([])
-  const [selectedAssets, setSelectedAssets] = useState<string[]>(['optical', 'sar'])
+  const [selectedAssets, setSelectedAssets] = useState<string[]>(() => observations.map(scene => scene.id))
   const [prompt, setPrompt] = useState('Map flood extent after the July rainfall and compare it with the earlier observation')
   const selectedCount = selectedAssets.length + uploads.length
   const toggleAsset = (id: string) => setSelectedAssets(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id])
@@ -117,13 +117,12 @@ function ChooseAnalysis({ choose, openData }: { choose: () => void; openData: ()
       </button>)}</div>
     </main>
     <aside className="analysis-inputs"><div className="inputs-heading"><div><span>INPUTS</span><h2>Selected observations</h2></div><b>{selectedCount} ready</b></div>
-      {selectedAssets.includes('optical') && <article className="selected-observation"><div className="observation-image optical" /><button onClick={() => toggleAsset('optical')} aria-label="Remove Sentinel-2 observation"><X /></button><h3>Sentinel-2</h3><p>30 Jul 2024 · 10:24 UTC</p><small>Optical · 10 m</small></article>}
-      {selectedAssets.includes('sar') && <article className="selected-observation"><div className="observation-image sar" /><button onClick={() => toggleAsset('sar')} aria-label="Remove Sentinel-1 observation"><X /></button><h3>Sentinel-1</h3><p>28 Jul 2024 · 22:17 UTC</p><small>SAR · 10 m</small></article>}
+      {observations.filter(scene => selectedAssets.includes(scene.id)).map(scene => <article className="selected-observation" key={scene.id}><div className={`observation-image ${scene.mode}`} style={scene.thumbnail ? { backgroundImage: `url(${scene.thumbnail})` } : undefined} /><button onClick={() => toggleAsset(scene.id)} aria-label={`Remove ${scene.source} observation`}><X /></button><h3>{scene.source}</h3><p>{scene.date}</p><small>{scene.mode === 'sar' ? 'SAR' : 'Optical'} · {scene.resolution_m} m{scene.cloud == null ? '' : ` · Cloud ${Math.round(scene.cloud)}%`}</small></article>)}
       {selectedAssets.includes('boundary') && <article className="uploaded-observation"><Map /><span><b>District AOI boundary</b><small>Vector boundary from Library</small></span><button onClick={() => toggleAsset('boundary')} aria-label="Remove district AOI boundary"><X /></button></article>}
       {uploads.map(name => <article className="uploaded-observation" key={name}><FileText /><span><b>{name}</b><small>Uploaded to this project</small></span><button onClick={() => setUploads(items => items.filter(item => item !== name))} aria-label={`Remove ${name}`}><X /></button></article>)}
       <button className="add-observations" onClick={() => setSourceOpen(value => !value)}><Plus /><span><b>Add more observations</b><small>Discover, upload, or reuse project data</small></span><ChevronDown /></button>
       {sourceOpen && <div className="input-actions"><button onClick={openData}><Search /><span><b>Discover imagery</b><small>Search public Sentinel and Landsat data</small></span><ChevronRight /></button><label><Upload /><span><b>Upload your data</b><small>PNG, JPG, GeoTIFF or multiple files</small></span><Plus /><input type="file" hidden multiple accept="image/*,.tif,.tiff" onChange={event => setUploads(items => [...items, ...Array.from(event.target.files || []).map(file => file.name).filter(name => !items.includes(name))])} /></label><button onClick={() => setLibraryOpen(value => !value)}><Folder /><span><b>Choose from Library</b><small>Reuse uploads and prepared project assets</small></span><ChevronDown /></button></div>}
-      {sourceOpen && libraryOpen && <div className="library-picker"><span>PROJECT LIBRARY</span>{[['optical', 'Wayanad pre-event optical', 'Analysis-ready observation'], ['sar', 'Wayanad post-event SAR', 'Analysis-ready observation'], ['boundary', 'District AOI boundary', 'Vector boundary']].map(([id, item, meta]) => <label key={id}><input type="checkbox" checked={selectedAssets.includes(id)} onChange={() => toggleAsset(id)} /><span><b>{item}</b><small>{meta}</small></span></label>)}</div>}
+      {sourceOpen && libraryOpen && <div className="library-picker"><span>PROJECT LIBRARY</span>{observations.map(scene => <label key={scene.id}><input type="checkbox" checked={selectedAssets.includes(scene.id)} onChange={() => toggleAsset(scene.id)} /><span><b>{scene.source} · {scene.date}</b><small>{scene.mode === 'sar' ? 'SAR observation' : 'Optical observation'}</small></span></label>)}<label><input type="checkbox" checked={selectedAssets.includes('boundary')} onChange={() => toggleAsset('boundary')} /><span><b>District AOI boundary</b><small>Vector boundary</small></span></label></div>}
     </aside>
     <footer className="analysis-builder"><div className="analysis-prompt"><MessageSquareText /><input value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Or describe what you need to know…" /></div><div className="builder-summary"><span><b>{ANALYSES.find(job => job.id === selectedJob)?.title}</b><small>{selectedCount} observations selected</small></span><button className="primary-button" disabled={selectedCount === 0} onClick={choose}>Build analysis plan<ArrowRight /></button></div></footer>
   </div>
@@ -160,16 +159,17 @@ function SettingsPage({ health }: { health: ServiceHealth | null }) { return <di
 
 export default function AnalysisWorkspace({ home }: { home: () => void }) {
   const [section, setSection] = useState<Section>('analysis'), [analysisStage, setAnalysisStage] = useState<AnalysisStage>('choose'), [health, setHealth] = useState<ServiceHealth | null>(null)
+  const [projectScenes, setProjectScenes] = useState<CatalogScene[]>(PREPARED_SCENES.slice(0, 2))
   useEffect(() => { const controller = new AbortController(); getServiceHealth(controller.signal).then(setHealth).catch(() => setHealth(null)); return () => controller.abort() }, [])
   const navigate = (next: Section) => { setSection(next); if (next === 'analysis') setAnalysisStage('choose') }
   const content = useMemo(() => {
     if (section === 'projects') return <ProjectsPage openData={() => setSection('data')} />
-    if (section === 'data') return <DataPage proceed={() => { setSection('analysis'); setAnalysisStage('choose') }} />
-    if (section === 'analysis') { if (analysisStage === 'plan') return <PlanPage back={() => setAnalysisStage('choose')} run={() => setAnalysisStage('run')} />; if (analysisStage === 'run') return <ChangeRunner finish={() => setSection('results')} />; return <ChooseAnalysis choose={() => setAnalysisStage('plan')} openData={() => setSection('data')} /> }
+    if (section === 'data') return <DataPage proceed={scenes => { setProjectScenes(scenes); setSection('analysis'); setAnalysisStage('choose') }} />
+    if (section === 'analysis') { if (analysisStage === 'plan') return <PlanPage back={() => setAnalysisStage('choose')} run={() => setAnalysisStage('run')} />; if (analysisStage === 'run') return <ChangeRunner finish={() => setSection('results')} />; return <ChooseAnalysis choose={() => setAnalysisStage('plan')} openData={() => setSection('data')} observations={projectScenes} /> }
     if (section === 'results') return <ResultsPage />
     if (section === 'library') return <LibraryPage />
     if (section === 'activity') return <ActivityPage />
     return <SettingsPage health={health} />
-  }, [section, analysisStage, health])
+  }, [section, analysisStage, health, projectScenes])
   return <main className="satquery-app"><SideNavigation current={section} navigate={navigate} home={home} /><ProjectHeader section={section} navigate={navigate} /><div className="workspace-content">{content}</div></main>
 }

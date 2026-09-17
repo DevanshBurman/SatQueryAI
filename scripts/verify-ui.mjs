@@ -43,6 +43,8 @@ try {
 
   await page.getByRole('button', { name: /Add 3 layers to project/ }).click()
   await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
+  await page.getByText('3 ready', { exact: true }).waitFor()
+  await page.getByText('Landsat 8/9', { exact: true }).waitFor()
   await page.screenshot({ path: 'test-results/03-choose-analysis.png', fullPage: true })
 
   await page.getByRole('button', { name: 'Build analysis plan' }).first().click()
