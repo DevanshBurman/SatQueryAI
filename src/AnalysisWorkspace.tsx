@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bot, CalendarDays, Check, ChevronDown,
   ChevronLeft, ChevronRight, CircleHelp, Cloud, Database, Download, Eye, FileText, Folder,
   Gauge, History, Home, Image as ImageIcon, Layers3, LocateFixed, Map, MapPin,
   MessageSquareText, MoreHorizontal, Pencil, Play, Plus, Radar, RotateCw, Search, Settings,
-  Sparkles, Upload, User, WandSparkles, Waves,
+  Sparkles, Upload, User, WandSparkles, Waves, X,
 } from 'lucide-react'
 import maplibregl, { type Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -31,7 +31,7 @@ function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i
 function PreparedBadge({ children = 'Prepared demonstration' }: { children?: ReactNode }) { return <span className="prepared-badge"><Sparkles />{children}</span> }
 
 function SideNavigation({ current, navigate, home }: { current: Section; navigate: (section: Section) => void; home: () => void }) {
-  const items = [['projects', 'Home', Home], ['analysis', 'Analysis', Activity], ['data', 'Data', Database], ['results', 'Results', FileText]] as const
+  const items = [['projects', 'Home', Home], ['analysis', 'Analysis', BarChart3], ['data', 'Data', Database], ['results', 'Results', FileText]] as const
   return <aside className="workspace-sidebar" aria-label="Workspace navigation">
     <div className="sidebar-brand"><button className="brand-button" onClick={home} aria-label="Return to landing page"><BrandMark /><span>SatQuery</span></button></div>
     <nav aria-label="Main workspace navigation">{items.map(([id, label, Icon]) => <button key={id} className={current === id ? 'active' : ''} onClick={() => navigate(id)}><Icon /><span>{label}</span></button>)}</nav>
@@ -102,24 +102,30 @@ const ANALYSES = [
 
 function ChooseAnalysis({ choose, openData }: { choose: () => void; openData: () => void }) {
   const [selectedJob, setSelectedJob] = useState('temporal')
+  const [sourceOpen, setSourceOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [uploads, setUploads] = useState<string[]>([])
+  const [selectedAssets, setSelectedAssets] = useState<string[]>(['optical', 'sar'])
   const [prompt, setPrompt] = useState('Map flood extent after the July rainfall and compare it with the earlier observation')
+  const selectedCount = selectedAssets.length + uploads.length
+  const toggleAsset = (id: string) => setSelectedAssets(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id])
   return <div className="analysis-home">
     <main className="analysis-job-main"><div className="analysis-job-heading"><span>ANALYSIS</span><h1>Choose an analysis</h1><p>Turn satellite data into insight. Select a workflow to get started.</p></div>
       <div className="job-list">{ANALYSES.map(({ id, icon: Icon, title, copy, chips, color }) => <button key={id} className={`job-row ${color} ${selectedJob === id ? 'selected' : ''}`} onClick={() => setSelectedJob(id)}>
         <span className="job-icon"><Icon /></span><span className="job-copy"><b>{title}<ChevronRight /></b><small>{copy}</small><em>{chips.join(' or ')}</em></span>
-        <span className={`job-diagram diagram-${id}`} aria-hidden="true">{id === 'visual' ? <><i className="scene one" /><ArrowRight /><i className="answer-card"><span /><span /><span /></i></> : id === 'temporal' ? <><i className="scene before" /><b>•••</b><i className="scene after" /><ArrowRight /><i className="change-map" /></> : <><span className="sensor-pair"><i className="scene optical" /><i className="scene sar" /></span><b className="fusion-brace">{'}'}</b><ArrowRight /><i className="fusion-map" /></>}</span>
+        <span className={`job-diagram diagram-${id}`}>{id === 'visual' ? <><span className="flow-node"><i className="scene one" /><small>Single observation</small></span><ArrowRight /><span className="flow-node"><i className="answer-card"><span /><span /><span /></i><small>Answer and visual context</small></span></> : id === 'temporal' ? <><span className="flow-node"><i className="scene before" /><small>Earlier date</small></span><b>•••</b><span className="flow-node"><i className="scene after" /><small>Later date</small></span><ArrowRight /><span className="flow-node"><i className="change-map" /><small>Change map and insights</small></span></> : <><span className="sensor-pair"><span className="flow-node"><i className="scene optical" /><small>Optical</small></span><span className="flow-node"><i className="scene sar" /><small>SAR</small></span></span><b className="fusion-brace">{'}'}</b><ArrowRight /><span className="flow-node"><i className="fusion-map" /><small>Combined analysis and insights</small></span></>}</span>
       </button>)}</div>
     </main>
-    <aside className="analysis-inputs"><div className="inputs-heading"><div><span>INPUTS</span><h2>Selected observations</h2></div><b>2 ready</b></div>
-      <article className="selected-observation"><div className="observation-image optical" /><button><MoreHorizontal /></button><h3>Sentinel-2</h3><p>30 Jul 2024 · 10:24 UTC</p><small>Optical · 10 m</small></article>
-      <article className="selected-observation"><div className="observation-image sar" /><button><MoreHorizontal /></button><h3>Sentinel-1</h3><p>28 Jul 2024 · 22:17 UTC</p><small>SAR · 10 m</small></article>
-      {uploads.map(name => <article className="uploaded-observation" key={name}><FileText /><span><b>{name}</b><small>Uploaded to this project</small></span><Check /></article>)}
-      <div className="input-actions"><button onClick={openData}><Search /><span><b>Discover imagery</b><small>Search public Sentinel and Landsat data</small></span><ChevronRight /></button><label><Upload /><span><b>Upload your data</b><small>PNG, JPG, GeoTIFF or multiple files</small></span><Plus /><input type="file" hidden multiple accept="image/*,.tif,.tiff" onChange={event => setUploads(Array.from(event.target.files || []).map(file => file.name))} /></label><button onClick={() => setLibraryOpen(value => !value)}><Folder /><span><b>Choose from Library</b><small>Reuse uploads and prepared project assets</small></span><ChevronDown /></button></div>
-      {libraryOpen && <div className="library-picker"><span>PROJECT LIBRARY</span>{['Wayanad pre-event optical', 'Wayanad post-event SAR', 'District AOI boundary'].map((item, index) => <label key={item}><input type="checkbox" defaultChecked={index < 2} /><span><b>{item}</b><small>{index === 2 ? 'Vector boundary' : 'Analysis-ready observation'}</small></span></label>)}</div>}
+    <aside className="analysis-inputs"><div className="inputs-heading"><div><span>INPUTS</span><h2>Selected observations</h2></div><b>{selectedCount} ready</b></div>
+      {selectedAssets.includes('optical') && <article className="selected-observation"><div className="observation-image optical" /><button onClick={() => toggleAsset('optical')} aria-label="Remove Sentinel-2 observation"><X /></button><h3>Sentinel-2</h3><p>30 Jul 2024 · 10:24 UTC</p><small>Optical · 10 m</small></article>}
+      {selectedAssets.includes('sar') && <article className="selected-observation"><div className="observation-image sar" /><button onClick={() => toggleAsset('sar')} aria-label="Remove Sentinel-1 observation"><X /></button><h3>Sentinel-1</h3><p>28 Jul 2024 · 22:17 UTC</p><small>SAR · 10 m</small></article>}
+      {selectedAssets.includes('boundary') && <article className="uploaded-observation"><Map /><span><b>District AOI boundary</b><small>Vector boundary from Library</small></span><button onClick={() => toggleAsset('boundary')} aria-label="Remove district AOI boundary"><X /></button></article>}
+      {uploads.map(name => <article className="uploaded-observation" key={name}><FileText /><span><b>{name}</b><small>Uploaded to this project</small></span><button onClick={() => setUploads(items => items.filter(item => item !== name))} aria-label={`Remove ${name}`}><X /></button></article>)}
+      <button className="add-observations" onClick={() => setSourceOpen(value => !value)}><Plus /><span><b>Add more observations</b><small>Discover, upload, or reuse project data</small></span><ChevronDown /></button>
+      {sourceOpen && <div className="input-actions"><button onClick={openData}><Search /><span><b>Discover imagery</b><small>Search public Sentinel and Landsat data</small></span><ChevronRight /></button><label><Upload /><span><b>Upload your data</b><small>PNG, JPG, GeoTIFF or multiple files</small></span><Plus /><input type="file" hidden multiple accept="image/*,.tif,.tiff" onChange={event => setUploads(items => [...items, ...Array.from(event.target.files || []).map(file => file.name).filter(name => !items.includes(name))])} /></label><button onClick={() => setLibraryOpen(value => !value)}><Folder /><span><b>Choose from Library</b><small>Reuse uploads and prepared project assets</small></span><ChevronDown /></button></div>}
+      {sourceOpen && libraryOpen && <div className="library-picker"><span>PROJECT LIBRARY</span>{[['optical', 'Wayanad pre-event optical', 'Analysis-ready observation'], ['sar', 'Wayanad post-event SAR', 'Analysis-ready observation'], ['boundary', 'District AOI boundary', 'Vector boundary']].map(([id, item, meta]) => <label key={id}><input type="checkbox" checked={selectedAssets.includes(id)} onChange={() => toggleAsset(id)} /><span><b>{item}</b><small>{meta}</small></span></label>)}</div>}
     </aside>
-    <footer className="analysis-builder"><div className="analysis-prompt"><MessageSquareText /><input value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Or describe what you need to know…" /></div><div className="builder-summary"><span><b>{ANALYSES.find(job => job.id === selectedJob)?.title}</b><small>2 observations selected</small></span><button className="primary-button" onClick={choose}>Build analysis plan<ArrowRight /></button></div></footer>
+    <footer className="analysis-builder"><div className="analysis-prompt"><MessageSquareText /><input value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Or describe what you need to know…" /></div><div className="builder-summary"><span><b>{ANALYSES.find(job => job.id === selectedJob)?.title}</b><small>{selectedCount} observations selected</small></span><button className="primary-button" disabled={selectedCount === 0} onClick={choose}>Build analysis plan<ArrowRight /></button></div></footer>
   </div>
 }
 
