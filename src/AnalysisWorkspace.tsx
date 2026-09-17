@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
   ChevronLeft, ChevronRight, CircleHelp, Cloud, Database, Download, Eye, FileText, Folder,
-  Gauge, History, Image as ImageIcon, Layers3, LocateFixed, Map, MapPin, Menu,
+  Gauge, History, Home, Image as ImageIcon, Layers3, LocateFixed, Map, MapPin,
   MessageSquareText, MoreHorizontal, Pencil, Play, Plus, Radar, RotateCw, Search, Settings,
   Sparkles, Upload, User, WandSparkles, Waves,
 } from 'lucide-react'
@@ -31,12 +31,11 @@ function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i
 function PreparedBadge({ children = 'Prepared demonstration' }: { children?: ReactNode }) { return <span className="prepared-badge"><Sparkles />{children}</span> }
 
 function SideNavigation({ current, navigate, home }: { current: Section; navigate: (section: Section) => void; home: () => void }) {
-  const [expanded, setExpanded] = useState(true)
-  const items = [['projects', 'Projects', Folder], ['data', 'Discover', Map], ['library', 'Library', Database], ['activity', 'Activity', Activity]] as const
-  return <aside className={`workspace-sidebar ${expanded ? 'expanded' : 'collapsed'}`}>
-    <div className="sidebar-brand"><button className="brand-button" onClick={home} aria-label="Return to landing page"><BrandMark /><span>SatQuery</span></button><button className="sidebar-toggle" onClick={() => setExpanded(value => !value)} aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}>{expanded ? <ChevronLeft /> : <Menu />}</button></div>
+  const items = [['projects', 'Home', Home], ['analysis', 'Analysis', Activity], ['data', 'Data', Database], ['results', 'Results', FileText]] as const
+  return <aside className="workspace-sidebar" aria-label="Workspace navigation">
+    <div className="sidebar-brand"><button className="brand-button" onClick={home} aria-label="Return to landing page"><BrandMark /><span>SatQuery</span></button></div>
     <nav aria-label="Main workspace navigation">{items.map(([id, label, Icon]) => <button key={id} className={current === id ? 'active' : ''} onClick={() => navigate(id)}><Icon /><span>{label}</span></button>)}</nav>
-    <div className="sidebar-bottom"><button><CircleHelp /><span>Help</span></button><button className={current === 'settings' ? 'active' : ''} onClick={() => navigate('settings')}><Settings /><span>Settings</span></button><button className="profile"><span>DK</span><b>Devansh</b><ChevronRight /></button></div>
+    <div className="sidebar-bottom"><button><CircleHelp /><span>Help</span></button><button className={current === 'settings' ? 'active' : ''} onClick={() => navigate('settings')}><Settings /><span>Settings</span></button><button className="profile"><span>DK</span><b>Devansh</b><ChevronRight /></button></div><ChevronRight className="rail-peek" />
   </aside>
 }
 
@@ -96,13 +95,32 @@ function DataPage({ proceed }: { proceed: () => void }) {
 }
 
 const ANALYSES = [
-  { id: 'visual', icon: WandSparkles, title: 'Visual query', tag: 'Ask one scene', copy: 'Select a point, box, or mask and ask a grounded question about visible features.', chips: ['Optical', 'VLM-ready'], color: 'blue' },
+  { id: 'visual', icon: WandSparkles, title: 'Visual query', tag: 'Ask one scene', copy: 'Ask about one optical or SAR observation and ground the answer visually.', chips: ['Optical', 'SAR'], color: 'blue' },
   { id: 'temporal', icon: History, title: 'Temporal change', tag: 'Compare dates', copy: 'Align before and after observations, calculate change, and inspect evidence.', chips: ['Optical', 'Deterministic'], color: 'orange' },
   { id: 'fusion', icon: Radar, title: 'Sensor fusion', tag: 'Optical + SAR', copy: 'Cross-check surface context with cloud-independent radar evidence.', chips: ['Sentinel-2', 'Sentinel-1'], color: 'violet' },
 ] as const
 
-function ChooseAnalysis({ choose }: { choose: () => void }) {
-  return <div className="choose-page page-scroll"><div className="back-crumb">Data / <b>Choose analysis</b></div><div className="analysis-intro"><PreparedBadge /><h1>What do you want to learn?</h1><p>Choose the job. SatQuery will assemble an editable workflow from your question, area, and selected observations.</p></div><div className="analysis-cards">{ANALYSES.map(({ id, icon: Icon, title, tag, copy, chips, color }) => <article key={id} className={color}><div className="analysis-icon"><Icon /></div><span>{tag}</span><h2>{title}</h2><p>{copy}</p><div>{chips.map(chip => <em key={chip}>{chip}</em>)}</div><button onClick={choose}>Build analysis plan<ArrowRight /></button></article>)}</div><section className="batch-banner"><span><Layers3 /></span><div><h3>Need to process many observations?</h3><p>Upload a folder or select a time series. SatQuery will validate every file and build a reviewable batch plan.</p></div><button onClick={choose}>Plan batch workflow<ArrowRight /></button></section></div>
+function ChooseAnalysis({ choose, openData }: { choose: () => void; openData: () => void }) {
+  const [selectedJob, setSelectedJob] = useState('temporal')
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [uploads, setUploads] = useState<string[]>([])
+  const [prompt, setPrompt] = useState('Map flood extent after the July rainfall and compare it with the earlier observation')
+  return <div className="analysis-home">
+    <main className="analysis-job-main"><div className="analysis-job-heading"><span>ANALYSIS</span><h1>Choose an analysis</h1><p>Turn satellite data into insight. Select a workflow to get started.</p></div>
+      <div className="job-list">{ANALYSES.map(({ id, icon: Icon, title, copy, chips, color }) => <button key={id} className={`job-row ${color} ${selectedJob === id ? 'selected' : ''}`} onClick={() => setSelectedJob(id)}>
+        <span className="job-icon"><Icon /></span><span className="job-copy"><b>{title}<ChevronRight /></b><small>{copy}</small><em>{chips.join(' or ')}</em></span>
+        <span className={`job-diagram diagram-${id}`} aria-hidden="true">{id === 'visual' ? <><i className="scene one" /><ArrowRight /><i className="answer-card"><span /><span /><span /></i></> : id === 'temporal' ? <><i className="scene before" /><b>•••</b><i className="scene after" /><ArrowRight /><i className="change-map" /></> : <><span className="sensor-pair"><i className="scene optical" /><i className="scene sar" /></span><b className="fusion-brace">{'}'}</b><ArrowRight /><i className="fusion-map" /></>}</span>
+      </button>)}</div>
+    </main>
+    <aside className="analysis-inputs"><div className="inputs-heading"><div><span>INPUTS</span><h2>Selected observations</h2></div><b>2 ready</b></div>
+      <article className="selected-observation"><div className="observation-image optical" /><button><MoreHorizontal /></button><h3>Sentinel-2</h3><p>30 Jul 2024 · 10:24 UTC</p><small>Optical · 10 m</small></article>
+      <article className="selected-observation"><div className="observation-image sar" /><button><MoreHorizontal /></button><h3>Sentinel-1</h3><p>28 Jul 2024 · 22:17 UTC</p><small>SAR · 10 m</small></article>
+      {uploads.map(name => <article className="uploaded-observation" key={name}><FileText /><span><b>{name}</b><small>Uploaded to this project</small></span><Check /></article>)}
+      <div className="input-actions"><button onClick={openData}><Search /><span><b>Discover imagery</b><small>Search public Sentinel and Landsat data</small></span><ChevronRight /></button><label><Upload /><span><b>Upload your data</b><small>PNG, JPG, GeoTIFF or multiple files</small></span><Plus /><input type="file" hidden multiple accept="image/*,.tif,.tiff" onChange={event => setUploads(Array.from(event.target.files || []).map(file => file.name))} /></label><button onClick={() => setLibraryOpen(value => !value)}><Folder /><span><b>Choose from Library</b><small>Reuse uploads and prepared project assets</small></span><ChevronDown /></button></div>
+      {libraryOpen && <div className="library-picker"><span>PROJECT LIBRARY</span>{['Wayanad pre-event optical', 'Wayanad post-event SAR', 'District AOI boundary'].map((item, index) => <label key={item}><input type="checkbox" defaultChecked={index < 2} /><span><b>{item}</b><small>{index === 2 ? 'Vector boundary' : 'Analysis-ready observation'}</small></span></label>)}</div>}
+    </aside>
+    <footer className="analysis-builder"><div className="analysis-prompt"><MessageSquareText /><input value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Or describe what you need to know…" /></div><div className="builder-summary"><span><b>{ANALYSES.find(job => job.id === selectedJob)?.title}</b><small>2 observations selected</small></span><button className="primary-button" onClick={choose}>Build analysis plan<ArrowRight /></button></div></footer>
+  </div>
 }
 
 const PLAN_STEPS = [
@@ -135,13 +153,13 @@ function ActivityPage() { return <div className="simple-page page-scroll"><div c
 function SettingsPage({ health }: { health: ServiceHealth | null }) { return <div className="simple-page page-scroll"><div className="page-title-row"><div><span className="crumb">Workspace / Settings</span><h1>Workspace settings</h1><p>Connections, map defaults, and prototype disclosures.</p></div></div><div className="settings-grid"><section><Database /><div><h2>Geospatial service</h2><p>{health ? `Connected · Rasterio ${health.rasterio}` : 'Offline · start the local FastAPI service'}</p></div><span className={health ? 'online' : ''}>{health ? 'Online' : 'Offline'}</span></section><section><Map /><div><h2>Basemap</h2><p>OpenStreetMap raster tiles · no Google key required</p></div><button>Change</button></section><section><Bot /><div><h2>Vision-language model</h2><p>Not connected. Prepared outputs remain visibly labelled.</p></div><span>Not connected</span></section></div></div> }
 
 export default function AnalysisWorkspace({ home }: { home: () => void }) {
-  const [section, setSection] = useState<Section>('projects'), [analysisStage, setAnalysisStage] = useState<AnalysisStage>('choose'), [health, setHealth] = useState<ServiceHealth | null>(null)
+  const [section, setSection] = useState<Section>('analysis'), [analysisStage, setAnalysisStage] = useState<AnalysisStage>('choose'), [health, setHealth] = useState<ServiceHealth | null>(null)
   useEffect(() => { const controller = new AbortController(); getServiceHealth(controller.signal).then(setHealth).catch(() => setHealth(null)); return () => controller.abort() }, [])
   const navigate = (next: Section) => { setSection(next); if (next === 'analysis') setAnalysisStage('choose') }
   const content = useMemo(() => {
     if (section === 'projects') return <ProjectsPage openData={() => setSection('data')} />
     if (section === 'data') return <DataPage proceed={() => { setSection('analysis'); setAnalysisStage('choose') }} />
-    if (section === 'analysis') { if (analysisStage === 'plan') return <PlanPage back={() => setAnalysisStage('choose')} run={() => setAnalysisStage('run')} />; if (analysisStage === 'run') return <ChangeRunner finish={() => setSection('results')} />; return <ChooseAnalysis choose={() => setAnalysisStage('plan')} /> }
+    if (section === 'analysis') { if (analysisStage === 'plan') return <PlanPage back={() => setAnalysisStage('choose')} run={() => setAnalysisStage('run')} />; if (analysisStage === 'run') return <ChangeRunner finish={() => setSection('results')} />; return <ChooseAnalysis choose={() => setAnalysisStage('plan')} openData={() => setSection('data')} /> }
     if (section === 'results') return <ResultsPage />
     if (section === 'library') return <LibraryPage />
     if (section === 'activity') return <ActivityPage />

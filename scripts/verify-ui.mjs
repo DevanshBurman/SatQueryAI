@@ -10,6 +10,20 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Open workspace', exact: true }).first().click()
+  await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
+  assert.equal(await page.locator('.job-row').count(), 3)
+  const rail = page.locator('.workspace-sidebar')
+  assert.ok((await rail.boundingBox()).width < 90)
+  await rail.hover()
+  await page.waitForTimeout(250)
+  assert.ok((await rail.boundingBox()).width > 200)
+  await page.screenshot({ path: 'test-results/00-rail-expanded.png', fullPage: true })
+  await page.getByRole('button', { name: /Choose from Library/ }).click()
+  await page.getByText('PROJECT LIBRARY', { exact: true }).waitFor()
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/00-analysis-home.png', fullPage: true })
+
+  await page.getByRole('button', { name: 'Home', exact: true }).click()
   await page.getByRole('heading', { name: 'Projects', exact: true }).waitFor()
   await page.screenshot({ path: 'test-results/01-projects.png', fullPage: true })
 
@@ -19,7 +33,7 @@ try {
   await page.screenshot({ path: 'test-results/02-data.png', fullPage: true })
 
   await page.getByRole('button', { name: /Add 3 layers to project/ }).click()
-  await page.getByRole('heading', { name: 'What do you want to learn?' }).waitFor()
+  await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
   await page.screenshot({ path: 'test-results/03-choose-analysis.png', fullPage: true })
 
   await page.getByRole('button', { name: 'Build analysis plan' }).first().click()
@@ -42,12 +56,10 @@ try {
   await page.getByRole('button', { name: 'SAR evidence' }).click()
   await page.screenshot({ path: 'test-results/06-results.png', fullPage: true })
 
-  await page.getByRole('button', { name: 'Activity' }).click()
-  await page.getByRole('heading', { name: 'Activity & reports' }).waitFor()
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('heading', { name: 'Workspace settings' }).waitFor()
   assert.deepEqual(errors, [])
-  console.log('PASS: Projects → Data → Choose analysis → Plan → Results, secondary navigation, and MapLibre rendered without runtime errors.')
+  console.log('PASS: Analysis-first entry, hover rail, Library picker, Data discovery, editable plan, connected GeoTIFF run, Results, and Settings rendered without runtime errors.')
 } finally {
   await browser.close()
 }
