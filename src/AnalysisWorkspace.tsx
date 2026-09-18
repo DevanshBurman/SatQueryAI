@@ -11,6 +11,8 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './analysis-workspace.css'
 import './workspace-layout.css'
 import { analyzeWaterChange, getServiceHealth, searchCatalog, type CatalogScene, type ServiceHealth, type WaterChangeResult } from './api'
+import AccountDialog from './AccountDialog'
+import { useAccount } from './AccountContext'
 
 type Section = 'projects' | 'data' | 'analysis' | 'results' | 'library' | 'activity' | 'settings'
 type AnalysisStage = 'choose' | 'plan' | 'run'
@@ -31,21 +33,21 @@ const PREPARED_SCENES: CatalogScene[] = [
 function BrandMark() { return <span className="sq-brand-mark" aria-hidden="true"><i /><i /></span> }
 function PreparedBadge({ children = 'Prepared demonstration' }: { children?: ReactNode }) { return <span className="prepared-badge"><Sparkles />{children}</span> }
 
-function SideNavigation({ current, navigate, home }: { current: Section; navigate: (section: Section) => void; home: () => void }) {
+function SideNavigation({ current, navigate, home, accountName, openAccount }: { current: Section; navigate: (section: Section) => void; home: () => void; accountName: string; openAccount: () => void }) {
   const items = [['projects', 'Home', Home], ['analysis', 'Analysis', BarChart3], ['data', 'Data', Database], ['results', 'Results', FileText]] as const
   return <aside className="workspace-sidebar" aria-label="Workspace navigation">
     <div className="sidebar-brand"><button className="brand-button" onClick={home} aria-label="Return to landing page"><BrandMark /><span>SatQuery</span></button></div>
     <nav aria-label="Main workspace navigation">{items.map(([id, label, Icon]) => <button key={id} className={current === id ? 'active' : ''} onClick={() => navigate(id)}><Icon /><span>{label}</span></button>)}</nav>
-    <div className="sidebar-bottom"><button><CircleHelp /><span>Help</span></button><button className={current === 'settings' ? 'active' : ''} onClick={() => navigate('settings')}><Settings /><span>Settings</span></button><button className="profile"><span>DK</span><b>Devansh</b><ChevronRight /></button></div><ChevronRight className="rail-peek" />
+    <div className="sidebar-bottom"><button><CircleHelp /><span>Help</span></button><button className={current === 'settings' ? 'active' : ''} onClick={() => navigate('settings')}><Settings /><span>Settings</span></button><button className="profile" onClick={openAccount}><span>{accountName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}</span><b>{accountName}</b><ChevronRight /></button></div><ChevronRight className="rail-peek" />
   </aside>
 }
 
-function ProjectHeader({ section, navigate }: { section: Section; navigate: (section: Section) => void }) {
+function ProjectHeader({ section, navigate, openAccount }: { section: Section; navigate: (section: Section) => void; openAccount: () => void }) {
   const insideProject = ['data', 'analysis', 'results'].includes(section)
   return <header className="workspace-header">
     <div className="project-identity"><BrandMark /><b>SatQuery</b>{insideProject && <><i /><button>Wayanad flood assessment<ChevronDown /></button></>}</div>
     {insideProject ? <nav className="project-tabs" aria-label="Project steps">{(['data', 'analysis', 'results'] as const).map((id, index) => <span key={id}><button className={section === id ? 'active' : ''} onClick={() => navigate(id)}>{id[0].toUpperCase() + id.slice(1)}</button>{index < 2 && <i />}</span>)}</nav> : <div className="global-search"><Search /><input aria-label="Search projects" placeholder="Search projects, locations, or imagery…" /></div>}
-    <div className="header-context">{insideProject && <><span><MapPin />Wayanad, Kerala, India</span><i /><b>Jan 2024 — Aug 2024</b></>}<button className="header-avatar"><User /></button></div>
+    <div className="header-context">{insideProject && <><span><MapPin />Wayanad, Kerala, India</span><i /><b>Jan 2024 — Aug 2024</b></>}<button className="header-avatar" onClick={openAccount} aria-label="Open account"><User /></button></div>
   </header>
 }
 
@@ -177,10 +179,12 @@ function ResultsPage() {
 
 function LibraryPage() { return <div className="simple-page page-scroll"><div className="page-title-row"><div><span className="crumb">Workspace / Library</span><h1>Data library</h1><p>Reusable observations, uploads, masks, and analysis-ready layers.</p></div><button className="primary-button"><Upload />Upload data</button></div><div className="library-grid">{['Sentinel-2 · Wayanad · 30 Jul','Sentinel-1 · Wayanad · 28 Jul','Water change mask · prepared','Wayanad AOI boundary'].map((name,index) => <article key={name}><div className={`library-preview item-${index}`} /><span>{index < 2 ? 'Observation' : 'Derived asset'}</span><h2>{name}</h2><p>{index < 2 ? 'Public catalog metadata · 10 m' : 'Project asset · demonstration'}</p><button><MoreHorizontal /></button></article>)}</div></div> }
 function ActivityPage() { return <div className="simple-page page-scroll"><div className="page-title-row"><div><span className="crumb">Workspace / Activity</span><h1>Activity & reports</h1><p>Review work across projects without mixing it into the analysis workspace.</p></div><button className="secondary-button"><Download />Export log</button></div><section className="activity-table"><header><span>Job</span><span>Project</span><span>Status</span><span>Updated</span></header>{[['Flood extent demonstration','Wayanad flood assessment','Prepared','12 min ago'],['Raster validation','Coastal change monitoring','Complete','Yesterday'],['Catalog search','Reservoir watch','Complete','5 days ago']].map(row => <div key={row[0]}><span><FileText /><b>{row[0]}</b></span><span>{row[1]}</span><span><i />{row[2]}</span><span>{row[3]}<ChevronRight /></span></div>)}</section></div> }
-function SettingsPage({ health }: { health: ServiceHealth | null }) { return <div className="simple-page page-scroll"><div className="page-title-row"><div><span className="crumb">Workspace / Settings</span><h1>Workspace settings</h1><p>Connections, map defaults, and prototype disclosures.</p></div></div><div className="settings-grid"><section><Database /><div><h2>Geospatial service</h2><p>{health ? `Connected · Rasterio ${health.rasterio}` : 'Offline · start the local FastAPI service'}</p></div><span className={health ? 'online' : ''}>{health ? 'Online' : 'Offline'}</span></section><section><Map /><div><h2>Basemap</h2><p>OpenStreetMap raster tiles · no Google key required</p></div><button>Change</button></section><section><Bot /><div><h2>Vision-language model</h2><p>Not connected. Prepared outputs remain visibly labelled.</p></div><span>Not connected</span></section></div></div> }
+function SettingsPage({ health, supabaseConnected, openAccount }: { health: ServiceHealth | null; supabaseConnected: boolean; openAccount: () => void }) { return <div className="simple-page page-scroll"><div className="page-title-row"><div><span className="crumb">Workspace / Settings</span><h1>Workspace settings</h1><p>Connections, map defaults, and prototype disclosures.</p></div></div><div className="settings-grid"><section><Database /><div><h2>Geospatial service</h2><p>{health ? `Connected · Rasterio ${health.rasterio}` : 'Offline · start the local FastAPI service'}</p></div><span className={health ? 'online' : ''}>{health ? 'Online' : 'Offline'}</span></section><section><Database /><div><h2>Supabase user data</h2><p>{supabaseConnected ? 'Connected · authentication and protected profiles enabled' : 'Add the project URL and publishable key to .env.local'}</p></div><button className={supabaseConnected ? 'online' : ''} onClick={openAccount}>{supabaseConnected ? 'Manage' : 'Set up'}</button></section><section><Map /><div><h2>Basemap</h2><p>OpenStreetMap raster tiles · no Google key required</p></div><button>Change</button></section><section><Bot /><div><h2>Vision-language model</h2><p>Not connected. Prepared outputs remain visibly labelled.</p></div><span>Not connected</span></section></div></div> }
 
 export default function AnalysisWorkspace({ home }: { home: () => void }) {
   const [section, setSection] = useState<Section>('analysis'), [analysisStage, setAnalysisStage] = useState<AnalysisStage>('choose'), [health, setHealth] = useState<ServiceHealth | null>(null)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const account = useAccount()
   const [projectScenes, setProjectScenes] = useState<CatalogScene[]>(PREPARED_SCENES.slice(0, 2))
   useEffect(() => { const controller = new AbortController(); getServiceHealth(controller.signal).then(setHealth).catch(() => setHealth(null)); return () => controller.abort() }, [])
   const navigate = (next: Section) => { setSection(next); if (next === 'analysis') setAnalysisStage('choose') }
@@ -191,7 +195,8 @@ export default function AnalysisWorkspace({ home }: { home: () => void }) {
     if (section === 'results') return <ResultsPage />
     if (section === 'library') return <LibraryPage />
     if (section === 'activity') return <ActivityPage />
-    return <SettingsPage health={health} />
-  }, [section, analysisStage, health, projectScenes])
-  return <main className="satquery-app"><SideNavigation current={section} navigate={navigate} home={home} /><ProjectHeader section={section} navigate={navigate} /><div className="workspace-content">{content}</div></main>
+    return <SettingsPage health={health} supabaseConnected={account.configured} openAccount={() => setAccountOpen(true)} />
+  }, [section, analysisStage, health, projectScenes, account.configured])
+  const accountName = account.profile?.full_name || account.user?.email?.split('@')[0] || 'Sign in'
+  return <main className="satquery-app"><SideNavigation current={section} navigate={navigate} home={home} accountName={accountName} openAccount={() => setAccountOpen(true)} /><ProjectHeader section={section} navigate={navigate} openAccount={() => setAccountOpen(true)} /><div className="workspace-content">{content}</div><AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} /></main>
 }
