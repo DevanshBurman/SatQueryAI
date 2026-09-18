@@ -8,7 +8,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 960 }, deviceScaleFactor: 1 })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
+  await page.goto(process.env.VERIFY_URL || 'http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Open workspace', exact: true }).first().click()
   await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
   assert.equal(await page.locator('.job-row').count(), 3)
@@ -37,14 +37,16 @@ try {
   await page.screenshot({ path: 'test-results/01-projects.png', fullPage: true })
 
   await page.getByRole('button', { name: 'Open project' }).click()
-  await page.getByRole('heading', { name: 'Find observations' }).waitFor()
+  await page.getByRole('heading', { name: 'Discover imagery' }).waitFor()
   assert.equal(await page.locator('.maplibregl-canvas').count(), 1)
   await page.screenshot({ path: 'test-results/02-data.png', fullPage: true })
 
-  await page.getByRole('button', { name: /Add 3 layers to project/ }).click()
+  await page.getByRole('button', { name: 'Use example data' }).click()
+  for (const choice of await page.locator('.discovery-select').all()) await choice.click()
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
   await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
   await page.getByText('3 ready', { exact: true }).waitFor()
-  await page.getByText('Landsat 8/9', { exact: true }).waitFor()
+  await page.getByRole('heading', { name: 'Sentinel-1 · example', exact: true }).waitFor()
   await page.screenshot({ path: 'test-results/03-choose-analysis.png', fullPage: true })
 
   await page.getByRole('button', { name: 'Build analysis plan' }).first().click()

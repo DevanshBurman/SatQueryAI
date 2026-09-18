@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bot, CalendarDays, Check, ChevronDown,
-  ChevronLeft, ChevronRight, CircleHelp, Cloud, Database, Download, Eye, FileText, Folder,
-  Gauge, History, Home, Image as ImageIcon, Layers3, LocateFixed, Map, MapPin,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bot, Check, ChevronDown,
+  ChevronLeft, ChevronRight, CircleHelp, Database, Download, Eye, FileText, Folder,
+  Gauge, History, Home, Image as ImageIcon, Layers3, Map, MapPin,
   MessageSquareText, MoreHorizontal, Pencil, Play, Plus, RotateCw, Search, Settings,
   Sparkles, Upload, User, Waves, X,
 } from 'lucide-react'
-import maplibregl, { type Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl'
+import DataPage from './DiscoveryPage'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './analysis-workspace.css'
 import './workspace-layout.css'
-import { analyzeWaterChange, getServiceHealth, searchCatalog, type CatalogScene, type ServiceHealth, type WaterChangeResult } from './api'
+import { analyzeWaterChange, getServiceHealth, type CatalogScene, type ServiceHealth, type WaterChangeResult } from './api'
 
 type Section = 'projects' | 'data' | 'analysis' | 'results' | 'library' | 'activity' | 'settings'
 type AnalysisStage = 'choose' | 'plan' | 'run'
-type Layer = { id: string; title: string; subtitle: string; opacity: number; visible: boolean }
 
 const PROJECTS = [
   { title: 'Wayanad flood assessment', meta: 'Edited 12 min ago', observations: 4, className: 'wayanad' },
@@ -56,44 +55,6 @@ function ProjectsPage({ openData }: { openData: () => void }) {
   </div>
 }
 
-function DataMap({ bbox }: { bbox: [number, number, number, number] }) {
-  const element = useRef<HTMLDivElement>(null)
-  const map = useRef<MapLibreMap | null>(null)
-  useEffect(() => {
-    if (!element.current || map.current) return
-    const style: StyleSpecification = { version: 8, sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap' } }, layers: [{ id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-saturation': -0.28, 'raster-contrast': 0.04, 'raster-brightness-max': 0.94 } }] }
-    const instance = new maplibregl.Map({ container: element.current, style, center: [76.12, 11.61], zoom: 9.2, attributionControl: false })
-    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); map.current = instance
-    return () => { instance.remove(); map.current = null }
-  }, [])
-  useEffect(() => { map.current?.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 90, duration: 500, maxZoom: 11 }) }, [bbox])
-  return <div className="map-stage"><div ref={element} /><div className="imagery-overlay" /><div className="map-search"><Search /><input aria-label="Search map" placeholder="Search for a place, coordinates, or scene ID…" /></div><button className="locate-button"><LocateFixed /></button><div className="scale-bar">5 km</div><div className="mini-map"><div /></div></div>
-}
-
-function DataPage({ proceed }: { proceed: (scenes: CatalogScene[]) => void }) {
-  const [sources, setSources] = useState({ sentinel2: true, landsat: true, sentinel1: true })
-  const [maxCloud, setMaxCloud] = useState(30), [preset, setPreset] = useState('true')
-  const [scenes, setScenes] = useState<CatalogScene[]>(PREPARED_SCENES)
-  const [catalogStatus, setCatalogStatus] = useState<'ready' | 'loading' | 'live' | 'fallback'>('ready')
-  const [layers, setLayers] = useState<Layer[]>([
-    { id: 'true', title: 'Sentinel-2 · True color', subtitle: '12 Aug 2024 · optical', opacity: 100, visible: true },
-    { id: 'ndwi', title: 'Sentinel-2 · NDWI', subtitle: 'Water index · derived view', opacity: 70, visible: true },
-    { id: 'sar', title: 'Sentinel-1 · VV/VH', subtitle: '10 Aug 2024 · radar', opacity: 60, visible: true },
-  ])
-  const bbox: [number, number, number, number] = [76.02, 11.48, 76.25, 11.72]
-  const runSearch = async () => {
-    setCatalogStatus('loading'); const selected = [sources.sentinel2 && 'sentinel-2-l2a', sources.sentinel1 && 'sentinel-1-grd'].filter(Boolean) as string[]
-    try { const result = await searchCatalog({ bbox, date_from: '2024-01-01', date_to: '2024-08-31', sources: selected.length ? selected : ['sentinel-2-l2a'], max_cloud: maxCloud, limit: 12 }); setScenes(result.scenes.length ? result.scenes : PREPARED_SCENES); setCatalogStatus(result.live ? 'live' : 'fallback') }
-    catch { setScenes(PREPARED_SCENES); setCatalogStatus('fallback') }
-  }
-  const updateLayer = (id: string, patch: Partial<Layer>) => setLayers(items => items.map(item => item.id === id ? { ...item, ...patch } : item))
-  return <div className="data-page"><aside className="filter-panel"><div className="panel-heading"><div><span>DATA / DISCOVER</span><h1>Find observations</h1></div><ChevronLeft /></div><p>Search public satellite imagery for your area of interest.</p>
-    <section className="filter-section"><header><span><b>1</b>Source</span><ChevronDown /></header><h4>Optical</h4><label><input type="checkbox" checked={sources.sentinel2} onChange={() => setSources(v => ({ ...v, sentinel2: !v.sentinel2 }))} />Sentinel-2</label><label><input type="checkbox" checked={sources.landsat} onChange={() => setSources(v => ({ ...v, landsat: !v.landsat }))} />Landsat 8/9</label><h4>Radar (SAR)</h4><label><input type="checkbox" checked={sources.sentinel1} onChange={() => setSources(v => ({ ...v, sentinel1: !v.sentinel1 }))} />Sentinel-1</label></section>
-    <section className="filter-section observation-filter"><header><span><b>2</b>Observation</span><ChevronDown /></header><label className="field-label"><CalendarDays />Jan 2024 — Aug 2024<ChevronDown /></label><label className="field-label"><Map />Intersects with AOI<ChevronDown /></label><div className="cloud-row"><span><Cloud />Cloud</span><b>0 — {maxCloud}%</b></div><input aria-label="Maximum cloud cover" type="range" min="0" max="100" value={maxCloud} onChange={event => setMaxCloud(Number(event.target.value))} /><button className="search-catalog" onClick={runSearch} disabled={catalogStatus === 'loading'}>{catalogStatus === 'loading' ? <RotateCw className="spin" /> : <Search />}{catalogStatus === 'loading' ? 'Searching…' : 'Search this area'}</button></section>
-    <div className="results-heading"><b>{scenes.length} observations</b><span>{catalogStatus === 'live' ? 'Live STAC' : catalogStatus === 'fallback' ? 'Prepared fallback' : 'Ready to search'}</span></div><div className="observation-list">{scenes.slice(0, 5).map((scene, index) => <button key={scene.id}><span className={`scene-thumb ${scene.mode} scene-${index}`} style={scene.thumbnail ? { backgroundImage: `url(${scene.thumbnail})` } : undefined} /><span><em className={scene.mode}>{scene.mode === 'sar' ? 'SAR' : 'Optical'}</em><b>{scene.source}</b><small>{scene.date} · {scene.resolution_m} m {scene.cloud == null ? '· VV + VH' : `· Cloud ${Math.round(scene.cloud)}%`}</small></span><MoreHorizontal /></button>)}</div></aside>
-    <DataMap bbox={bbox} /><aside className="visual-panel"><section><header><span><b>3</b>Visualization</span><ChevronDown /></header><h4>Optical presets</h4><div className="preset-grid">{[['true','True color'],['false','False color'],['ndvi','NDVI'],['ndwi','NDWI'],['ndbi','NDBI']].map(([id,label]) => <button key={id} className={`${id} ${preset === id ? 'active' : ''}`} onClick={() => setPreset(id)}><span>{preset === id && <Check />}</span><b>{label}</b></button>)}</div><h4 className="sar-title">SAR presets</h4><div className="preset-grid sar-presets">{[['vv','VV'],['vh','VH'],['vvvh','VV/VH composite']].map(([id,label]) => <button key={id} className={id} onClick={() => setPreset(id)}><span /><b>{label}</b></button>)}</div><p className="preset-note"><CircleHelp /> Presets change how sensor bands are rendered; they do not invent new measurements.</p></section>
-      <section className="layer-section"><header><span><b>4</b>Project layers</span><ChevronDown /></header>{layers.map(layer => <div className="layer-row" key={layer.id}><button onClick={() => updateLayer(layer.id, { visible: !layer.visible })}><Eye className={layer.visible ? '' : 'muted'} /></button><span><b>{layer.title}</b><small>{layer.subtitle}</small></span><input aria-label={`${layer.title} opacity`} type="range" min="0" max="100" value={layer.opacity} onChange={event => updateLayer(layer.id, { opacity: Number(event.target.value) })} /><em>{layer.opacity}%</em></div>)}<button className="primary-button wide" onClick={() => proceed(scenes.slice(0, 3))}>Add {layers.length} layers to project<ArrowRight /></button></section></aside></div>
-}
 
 const ANALYSES = [
   { id: 'visual', icon: Eye, title: 'Visual query', tag: 'Optical or SAR', copy: 'Ask about one optical or SAR observation.', color: 'blue' },
@@ -186,7 +147,7 @@ export default function AnalysisWorkspace({ home }: { home: () => void }) {
   const navigate = (next: Section) => { setSection(next); if (next === 'analysis') setAnalysisStage('choose') }
   const content = useMemo(() => {
     if (section === 'projects') return <ProjectsPage openData={() => setSection('data')} />
-    if (section === 'data') return <DataPage proceed={scenes => { setProjectScenes(scenes); setSection('analysis'); setAnalysisStage('choose') }} />
+    if (section === 'data') return <DataPage back={() => setSection('analysis')} proceed={scenes => { setProjectScenes(scenes); setSection('analysis'); setAnalysisStage('choose') }} />
     if (section === 'analysis') { if (analysisStage === 'plan') return <PlanPage back={() => setAnalysisStage('choose')} run={() => setAnalysisStage('run')} />; if (analysisStage === 'run') return <ChangeRunner finish={() => setSection('results')} />; return <ChooseAnalysis choose={() => setAnalysisStage('plan')} openData={() => setSection('data')} observations={projectScenes} /> }
     if (section === 'results') return <ResultsPage />
     if (section === 'library') return <LibraryPage />

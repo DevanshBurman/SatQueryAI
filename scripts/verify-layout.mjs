@@ -9,7 +9,7 @@ try {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 })
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
-    await page.goto('http://127.0.0.1:5173/')
+    await page.goto(process.env.VERIFY_URL || 'http://127.0.0.1:5173/')
     await page.getByRole('button', { name: 'Open workspace', exact: true }).first().click()
     await page.getByRole('heading', { name: 'Choose an analysis' }).waitFor()
     const geometry = await page.evaluate(() => {
@@ -41,9 +41,11 @@ try {
     assert.equal(await page.locator('.crumb').evaluate(e => getComputedStyle(e).backgroundColor), 'rgba(0, 0, 0, 0)')
     if (width === 1280) {
       await page.getByRole('button', { name: 'Open project' }).click()
-      await page.getByRole('heading', { name: 'Find observations' }).waitFor()
+      await page.getByRole('heading', { name: 'Discover imagery' }).waitFor()
       await page.screenshot({ path: 'test-results/data-1280.png' })
-      await page.getByRole('button', { name: /Add 3 layers to project/ }).click()
+      await page.getByRole('button', { name: 'Use example data' }).click()
+      await page.getByRole('button', { name: 'Use observation', exact: true }).click()
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
       await page.getByRole('button', { name: 'Build analysis plan' }).click()
       await page.getByRole('heading', { name: 'Review analysis plan' }).waitFor()
       await page.screenshot({ path: 'test-results/plan-1280.png' })
