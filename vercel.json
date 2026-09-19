@@ -4,6 +4,10 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/terms", "destination": "/index.html" }
+  ],
   "functions": {
     "api/**/*.py": {
       "excludeFiles": "{node_modules/**,dist/**,output/**,design-concepts/**,design-references/**,scripts/**,test-results/**,public/**,src/**}"
