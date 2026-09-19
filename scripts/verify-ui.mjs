@@ -71,8 +71,12 @@ try {
 
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('heading', { name: 'Workspace settings' }).waitFor()
+  await page.getByRole('button', { name: 'Open account' }).click()
+  await page.getByRole('dialog').waitFor()
+  assert.match(await page.getByRole('dialog').innerText(), /Connect your Supabase project|Welcome back|Account settings/)
+  await page.getByRole('button', { name: 'Close account panel' }).click()
   assert.deepEqual(errors, [])
-  console.log('PASS: Analysis-first entry, hover rail, Library picker, Data discovery, editable plan, connected GeoTIFF run, Results, and Settings rendered without runtime errors.')
+  console.log('PASS: Analysis-first entry, hover rail, Library picker, Data discovery, editable plan, connected GeoTIFF run, Results, Settings, and account panel rendered without runtime errors.')
 } finally {
   await browser.close()
 }

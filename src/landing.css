@@ -6,3 +6,4 @@
 .sq-earth>img{animation:sq-orbit 24s ease-in-out infinite alternate;transform-origin:72% 45%}@keyframes sq-orbit{from{transform:scale(1)}to{transform:scale(1.065)}}
 .sq-stage:not(.sq-stage-3) .sq-evidence-card{visibility:hidden;pointer-events:none}.sq-stage-3 .sq-evidence-card{visibility:visible}
 @media(prefers-reduced-motion:reduce){.sq-site *{animation:none!important;transition:none!important}.sq-reveal{opacity:1;transform:none}.sq-earth{transform:none}.sq-stage-image{transform:none}}
+.sq-footer-links{display:flex;align-items:center;gap:18px}.sq-footer-links a{font-size:11px;color:#a3dce5}.sq-footer-links a:hover{text-decoration:underline}@media(max-width:760px){.sq-footer-links{margin-left:auto;flex-wrap:wrap}}
