@@ -5,7 +5,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.py": {
+    "api/**/*.py": {
       "excludeFiles": "{node_modules/**,dist/**,output/**,design-concepts/**,design-references/**,scripts/**,test-results/**,public/**,src/**}"
     }
   }
