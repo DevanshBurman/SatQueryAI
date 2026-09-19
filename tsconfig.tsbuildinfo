@@ -1,1 +1,1 @@
-{"root":["./src/analysisworkspace.tsx","./src/app.tsx","./src/demovisual.tsx","./src/landingexperience.tsx","./src/productsections.tsx","./src/riverscene.tsx","./src/api.ts","./src/main.tsx"],"version":"5.7.3"}
+{"root":["./src/accountcontext.tsx","./src/accountdialog.tsx","./src/analysisworkspace.tsx","./src/app.tsx","./src/demovisual.tsx","./src/landingexperience.tsx","./src/productsections.tsx","./src/riverscene.tsx","./src/api.ts","./src/main.tsx","./src/supabase.ts","./src/vite-env.d.ts"],"version":"5.7.3"}

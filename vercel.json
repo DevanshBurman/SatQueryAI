@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.py": {
+      "excludeFiles": "{node_modules/**,dist/**,output/**,design-concepts/**,design-references/**,scripts/**,test-results/**,public/**,src/**}"
+    }
+  }
+}

@@ -25,6 +25,8 @@ app = FastAPI(
     title="SatQueryAI Geospatial API",
     version="0.2.0",
     description="Transparent GIS utilities and prepared demonstration endpoints for SIH 26167.",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
 )
 app.add_middleware(
     CORSMiddleware,

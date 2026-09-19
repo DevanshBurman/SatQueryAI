@@ -22,3 +22,7 @@ export type Profile = {
   created_at: string
   updated_at: string
 }
+
+export type Workspace = { id: string; owner_id: string; name: string; created_at: string; updated_at: string }
+export type UserProject = { id: string; owner_id: string; workspace_id: string; title: string; location: string | null; status: string; created_at: string; updated_at: string }
+export type QueryHistoryItem = { id: string; owner_id: string; workspace_id: string; project_id: string | null; query: string; analysis_type: string; created_at: string }
