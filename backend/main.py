@@ -15,11 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from pyproj import CRS, Geod
 from rasterio.warp import Resampling, reproject
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
+EARTH_RADIUS_M = 6_371_008.8
 
 app = FastAPI(
     title="SatQueryAI Geospatial API",
@@ -47,6 +47,21 @@ class CatalogRequest(BaseModel):
 
 class AreaRequest(BaseModel):
     coordinates: list[list[float]]
+
+
+def _spherical_polygon_metrics(coordinates: list[tuple[float, float]]) -> tuple[float, float]:
+    """Return approximate area and perimeter on a WGS84-sized sphere."""
+    area_sum = 0.0
+    perimeter = 0.0
+    for (lon_a, lat_a), (lon_b, lat_b) in zip(coordinates, coordinates[1:]):
+        lon_1, lat_1 = math.radians(lon_a), math.radians(lat_a)
+        lon_2, lat_2 = math.radians(lon_b), math.radians(lat_b)
+        delta_lon = (lon_2 - lon_1 + math.pi) % (2 * math.pi) - math.pi
+        delta_lat = lat_2 - lat_1
+        haversine = math.sin(delta_lat / 2) ** 2 + math.cos(lat_1) * math.cos(lat_2) * math.sin(delta_lon / 2) ** 2
+        perimeter += 2 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(haversine)))
+        area_sum += delta_lon * (2 + math.sin(lat_1) + math.sin(lat_2))
+    return abs(area_sum) * EARTH_RADIUS_M**2 / 2, perimeter
 
 
 def _trace(label: str, detail: str, status: str = "complete") -> dict[str, str]:
@@ -112,9 +127,8 @@ def measure_area(request: AreaRequest) -> dict[str, float]:
     if len(request.coordinates) < 3:
         raise HTTPException(422, "A polygon needs at least three coordinates")
     ring = request.coordinates + ([request.coordinates[0]] if request.coordinates[-1] != request.coordinates[0] else [])
-    lons, lats = zip(*ring)
-    area, perimeter = Geod(ellps="WGS84").polygon_area_perimeter(lons, lats)
-    return {"area_hectares": round(abs(area) / 10000, 3), "perimeter_km": round(perimeter / 1000, 3)}
+    area, perimeter = _spherical_polygon_metrics([(float(lon), float(lat)) for lon, lat in ring])
+    return {"area_hectares": round(area / 10000, 3), "perimeter_km": round(perimeter / 1000, 3)}
 
 
 async def _save_upload(upload: UploadFile) -> Path:
@@ -175,15 +189,13 @@ def _pixel_area_square_metres(src: rasterio.io.DatasetReader) -> tuple[float, st
     if not src.crs:
         raise HTTPException(422, "The before raster needs a declared CRS for area measurement")
     pixel_area = abs(src.transform.a * src.transform.e - src.transform.b * src.transform.d)
-    crs = CRS.from_user_input(src.crs)
-    if crs.is_projected:
-        factor = crs.axis_info[0].unit_conversion_factor or 1.0
-        return pixel_area * factor * factor, f"Projected pixel area converted from {crs.axis_info[0].unit_name}"
+    if src.crs.is_projected:
+        unit_name, factor = src.crs.linear_units_factor
+        return pixel_area * factor * factor, f"Projected pixel area converted from {unit_name}"
     centre_col, centre_row = src.width / 2, src.height / 2
     corners = [src.transform * (centre_col + dx, centre_row + dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1))]
-    lons, lats = zip(*corners)
-    area, _ = Geod(ellps="WGS84").polygon_area_perimeter(lons, lats)
-    return abs(area), "Geodesic pixel area estimated at raster centre"
+    area, _ = _spherical_polygon_metrics([(float(lon), float(lat)) for lon, lat in corners + [corners[0]]])
+    return area, "Spherical pixel area estimated at raster centre"
 
 
 def _analyze_paths(before_path: Path, after_path: Path, green_band: int = 2, nir_band: int = 4, threshold: float = 0.08) -> dict[str, Any]:
