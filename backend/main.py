@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel, Field
+from backend.vision import router as vision_router
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -33,6 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(vision_router)
 
 
 class CatalogRequest(BaseModel):
