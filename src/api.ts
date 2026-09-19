@@ -1,7 +1,7 @@
 export type ServiceHealth = {
   status: 'ok'
   service: string
-  rasterio: string
+  engine: string
 }
 
 export type RasterStatistic = {
@@ -39,6 +39,7 @@ export type WaterChangeResult = {
   threshold: number
   crs: string
   areaMethod: string
+  areaUnit: 'ha' | 'pixels'
   beforePreviewPng: string
   afterPreviewPng: string
   maskPng: string
