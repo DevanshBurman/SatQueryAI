@@ -38,6 +38,7 @@ export default function DiscoveryPage({ proceed, back }: { proceed: (scenes: Cat
   const [showFootprint, setShowFootprint] = useState(true)
   const [opacity, setOpacity] = useState(20)
   const [mapError, setMapError] = useState(false)
+  const [prepared, setPrepared] = useState(false)
 
   useEffect(() => {
     if (!container.current) return
@@ -93,6 +94,14 @@ export default function DiscoveryPage({ proceed, back }: { proceed: (scenes: Cat
     const controller = new AbortController(); request.current = controller
     setStatus('loading'); setNotice(''); setActive(null); setVisual(false); setScenes([])
     try {
+      if (prepared) {
+        const response = await fetch('/api/studio/collection', {signal:controller.signal})
+        if (!response.ok) throw new Error('Collection unavailable')
+        const items: CatalogScene[] = await response.json()
+        const [w,s,e,n] = viewport.current
+        setScenes(items.filter(item => item.bbox && item.bbox[0] <= e && item.bbox[2] >= w && item.bbox[1] <= n && item.bbox[3] >= s && item.date >= dateFrom && item.date <= dateTo && (mode === 'all' || mode === item.mode) && (item.cloud === null || item.cloud <= cloud)))
+        setStatus('live'); setNotice('Prepared Sentinel collection · real cropped rasters, ready to analyse.'); return
+      }
       const result = await searchCatalog({ bbox: viewport.current, date_from: dateFrom, date_to: dateTo, sources: mode === 'optical' ? ['sentinel-2-l2a'] : mode === 'sar' ? ['sentinel-1-grd'] : ['sentinel-2-l2a','sentinel-1-grd'], max_cloud: mode === 'sar' ? 100 : cloud, limit: 12 }, controller.signal)
       if (controller.signal.aborted) return
       if (!result.live) { setStatus('error'); setNotice('Live catalogue is unavailable. Retry or open the example collection below.'); return }
@@ -104,11 +113,12 @@ export default function DiscoveryPage({ proceed, back }: { proceed: (scenes: Cat
   return <section className="discovery" aria-label="Imagery discovery">
     <aside className="discovery-panel">
       <header><span className="discovery-eyebrow">PROJECT DATA</span><h1>Discover imagery</h1><p>Find observations. Bring them into your question.</p></header>
+      <button className="discovery-filter-toggle" onClick={() => {setPrepared(v => !v);setLocation('23.26, 77.30');setDateFrom('2021-05-01');setDateTo('2021-11-30');viewport.current=[77.24,23.20,77.37,23.32];map.current?.fitBounds([[77.24,23.20],[77.37,23.32]],{padding:40});setNotice('Paste 23.26, 77.30 or search this area. Real Sentinel optical and radar crops are available.')}}><Layers3 size={16}/><span>{prepared ? 'Prepared Sentinel collection ✓' : 'Explore Upper Lake collection'}<small>23.26, 77.30 · May–November 2021</small></span></button>
       <div className="discovery-tabs" role="group" aria-label="Sensor type">{[['all','All sensors'],['optical','Optical'],['sar','Radar · SAR']].map(([id,label]) => <button key={id} aria-pressed={mode === id} onClick={() => setMode(id)}>{label}</button>)}</div>
       <button className="discovery-filter-toggle" aria-expanded={filters} onClick={() => setFilters(v => !v)}><SlidersHorizontal size={16} /><span>Dates & filters<small>{dateFrom} — {dateTo}</small></span><ChevronDown size={16} /></button>
       {filters && <div className="discovery-filters"><label>From<input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} /></label><label>To<input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} /></label>{mode !== 'sar' && <label className="cloud-filter">Optical cloud cover ≤ {cloud}%<input aria-label="Maximum cloud cover" type="range" min="0" max="100" value={cloud} onChange={e => setCloud(Number(e.target.value))} /></label>}<small>{mode === 'sar' ? 'Sentinel-1 GRD · radar observations' : mode === 'optical' ? 'Sentinel-2 L2A · multispectral observations' : 'Sentinel-2 optical + Sentinel-1 radar'}</small></div>}
       <button className="discovery-search" disabled={status === 'loading' || !mapReady} onClick={runSearch}><Search size={16}/>{status === 'loading' ? 'Searching…' : 'Search this map area'}</button>
-      <div className="discovery-list-heading"><b>{scenes.length ? `${scenes.length} observations` : 'Observations'}</b><span>{status === 'live' ? 'Live catalogue' : status === 'example' ? 'Example collection' : 'Sentinel archive'}</span></div>
+      <div className="discovery-list-heading"><b>{scenes.length ? `${scenes.length} observations` : 'Observations'}</b><span>{status === 'live' ? (prepared ? 'Prepared collection' : 'Live catalogue') : status === 'example' ? 'Example collection' : 'Sentinel archive'}</span></div>
       <div className="discovery-list">
         {!scenes.length && <div className="discovery-empty"><MapPin size={30}/><h2>{status === 'loading' ? 'Finding observations' : 'Start with a place'}</h2><p>Move the map or enter coordinates, then search for imagery in this area.</p><span>Optical for surface detail.<br/>Radar for all-weather observations.</span></div>}
         {scenes.filter(scene => mode === 'all' || scene.mode === mode).map(scene => <article className={active?.id === scene.id ? 'is-active' : ''} key={scene.id}>

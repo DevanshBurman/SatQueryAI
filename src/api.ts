@@ -49,6 +49,7 @@ export type WaterChangeResult = {
 }
 
 export type CatalogScene = {
+  sample_id?: string
   id: string
   source: string
   date: string

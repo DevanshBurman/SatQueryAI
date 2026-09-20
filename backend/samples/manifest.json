@@ -43,5 +43,37 @@
     ],
     "stac": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-1-rtc/items/S1A_IW_GRDH_1SDV_20210506T004523_20210506T004548_037760_0474DD_rtc",
     "processing": "Sentinel-1 RTC VV/VH converted to dB. Bilinear resampling to the optical 10 m grid does not improve native radar resolution. Terrain corrected, not independently validated co-registration."
+  },
+  {
+    "id": "wide-before",
+    "label": "Upper Lake \u00b7 landscape view",
+    "date": "2021-05-06",
+    "modality": "optical",
+    "source": "S2A_MSIL2A_20210506T051651_R062_T43QGF_20210508T010640",
+    "cloud": 0.639825,
+    "stac": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a/items/S2A_MSIL2A_20210506T051651_R062_T43QGF_20210508T010640",
+    "bands": [
+      "blue",
+      "green",
+      "red",
+      "nir"
+    ],
+    "processing": "512x512 crop, 10 m, B02/B03/B04/B08 surface reflectance (DN/10000). Same source scenes as the shoreline pair; wider, different footprint. No cloud mask."
+  },
+  {
+    "id": "wide-after",
+    "label": "Upper Lake \u00b7 landscape view",
+    "date": "2021-11-02",
+    "modality": "optical",
+    "source": "S2A_MSIL2A_20211102T052001_R062_T43QGF_20211103T160449",
+    "cloud": 0.032734,
+    "stac": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a/items/S2A_MSIL2A_20211102T052001_R062_T43QGF_20211103T160449",
+    "bands": [
+      "blue",
+      "green",
+      "red",
+      "nir"
+    ],
+    "processing": "512x512 crop, 10 m, B02/B03/B04/B08 surface reflectance (DN/10000). Same source scenes as the shoreline pair; wider, different footprint. No cloud mask."
   }
 ]

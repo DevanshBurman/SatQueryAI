@@ -3,6 +3,7 @@ import { ArrowRight, Bot, Check, ChevronDown, Download, Layers3, LoaderCircle, P
 import { analyzeWaterChange, type CatalogScene } from './api'
 import { supabase } from './supabase'
 import './analysis-studio.css'
+import StudioWelcome from './StudioWelcome'
 
 type Evidence = { id: string; label: string; date: string; modality: 'optical' | 'sar'; image: string; source: string; crs?: string | null; bounds?: number[]; file?: File; processing?: string }
 type Answer = { answer: string; task: string; mode: string; trace: unknown[]; limitations?: string[]; maskPng?: string; maskSourceId?: string; query?: string; elapsedSeconds?: number; sources?: unknown[] }
@@ -46,13 +47,15 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [plan, setPlan] = useState<Plan>()
-  const [connected, setConnected] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const [rendered, setRendered] = useState<{id:string;image:string;note:string}>()
   const [threshold, setThreshold] = useState(.15)
   const [green, setGreen] = useState(2), [nir, setNir] = useState(4)
   const [overlay, setOverlay] = useState(true)
   const [compare, setCompare] = useState(false)
   const [split, setSplit] = useState(50)
   const [tour, setTour] = useState(false)
+  const [welcome, setWelcome] = useState(true)
   const [reading, setReading] = useState(false)
   useEffect(() => {
     if (!reading) return
@@ -83,42 +86,49 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
     const top = target ? target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop : 0
     container.scrollTo({top,behavior:'instant'})
   }, [answers, error])
-  useEffect(() => {
-    if (!tour) return
-    const previous = document.activeElement as HTMLElement | null
-    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.studio-tour button'))
-    buttons[0]?.focus()
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTour(false)
-      if (event.key === 'Tab' && buttons.length) {
-        if (event.shiftKey && document.activeElement === buttons[0]) {event.preventDefault();buttons.at(-1)?.focus()}
-        else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {event.preventDefault();buttons[0].focus()}
-      }
-    }
-    document.addEventListener('keydown',handler)
-    return () => {document.removeEventListener('keydown',handler);previous?.focus()}
-  }, [tour])
 
   useEffect(() => {
-    let mounted = true
-    const check = () => request<{ configured: boolean }>('/api/studio/status').then(v => { if (mounted) setConnected(v.configured) }).catch(() => { if (mounted) setConnected(false) })
-    void check()
-    const timer = setInterval(check, 15000)
-    return () => { mounted = false; clearInterval(timer) }
-  }, [])
+    if (!busy) return
+    const start = Date.now(); setElapsed(0)
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now()-start)/1000)), 1000)
+    return () => clearInterval(timer)
+  }, [Boolean(busy)])
   useEffect(() => {
     const fresh = scenes.filter(scene => !usedScenes.current.has(scene.id))
     if (!fresh.length) return
     fresh.forEach(scene => usedScenes.current.add(scene.id))
+    const downloadable = fresh.filter(scene => scene.sample_id)
+    if (downloadable.length) {
+      setBusy('Attaching source rasters')
+      request<Evidence[]>('/api/studio/samples').then(async all => {
+        const items = await Promise.all(downloadable.map(async scene => {
+          const item = all.find(value => value.id === scene.sample_id)
+          if (!item) throw new Error('Source raster is unavailable')
+          const response = await fetch(`/api/studio/sample/${item.id}`)
+          if (!response.ok) throw new Error('Source raster download failed')
+          return {...item,file:new File([await response.blob()],`${item.id}.tif`,{type:'image/tiff'})}
+        }))
+        add(items)
+      }).catch(e => setError((e as Error).message)).finally(() => setBusy(''))
+    }
     // Catalog selections retain metadata; a thumbnail is never substituted for a raster.
-    const entries: Evidence[] = fresh.map(scene => ({ id: scene.id, label: scene.source, source: scene.id, date: scene.date, modality: scene.mode, image: scene.thumbnail || '', bounds: scene.bbox || undefined, processing: 'Catalog reference. Upload the matching GeoTIFF to analyse its pixels.' }))
+    const entries: Evidence[] = fresh.filter(scene => !scene.sample_id).map(scene => ({ id: scene.id, label: scene.source, source: scene.id, date: scene.date, modality: scene.mode, image: scene.thumbnail || '', bounds: scene.bbox || undefined, processing: 'Catalog reference. Upload the matching GeoTIFF to analyse its pixels.' }))
     setAssets(previous => [...previous, ...entries])
-    setActive(entries[0].id)
+    if (entries.length) setActive(entries[0].id)
   }, [scenes])
 
   function add(items: Evidence[]) {
     setAssets(previous => [...previous.filter(old => !items.some(item => old.id === item.id)), ...items])
     setSelected(items.map(item => item.id).slice(0, 2)); setActive(items[0].id); setAnswers([]); setPlan(undefined); setInputsOpen(false)
+  }
+  async function renderPreset(preset: string) {
+    if (!shown?.file) return
+    setBusy('Rendering spectral bands'); setError('')
+    try {
+      const body = new FormData(); body.append('file',shown.file); body.append('preset',preset)
+      const result = await request<{image:string;note:string}>('/api/studio/render',{method:'POST',body})
+      setRendered({id:shown.id,...result}); setCompare(false)
+    } catch(e) {setError((e as Error).message)} finally {setBusy('')}
   }
   async function loadSamples() {
     setBusy('Loading real Sentinel-2 crops'); setError('')
@@ -140,7 +150,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       const items: Evidence[] = []
       for (const file of Array.from(files).slice(0, 2)) {
         if (/\.(png|jpe?g)$/i.test(file.name)) {
-          if (file.size > 3.5 * 1024 * 1024) throw new Error('Use a PNG or JPEG smaller than 3.5 MB.')
+          if (file.size > 2_000_000) throw new Error('Use a PNG or JPEG smaller than 2 MB.')
           const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Could not read this image.')); reader.readAsDataURL(file) })
           items.push({ id: crypto.randomUUID(), label: file.name, source: file.name, date: '', modality: 'optical', file, image, processing: 'Benchmark visual input · no georeferencing or spectral measurements.' })
           continue
@@ -171,6 +181,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
     if (!query.trim()) { setError('Ask a question first.'); return }
     if (!chosen.length || chosen.some(item => !item.file)) { setError('Upload an image or load the Sentinel sample. Catalog references need their matching imagery.'); return }
     const question = query.trim()
+    const started = performance.now()
     setReading(true); setInputsOpen(false)
     setBusy('Validating inputs and choosing tools')
     try {
@@ -179,7 +190,10 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       const highlighting = /highlight|mask|segment|ground|outline/i.test(question)
       const temporal = /change|between|before|after|increased|decreased|compare/i.test(question)
       if (water && (highlighting || temporal) && chosen.some(item => /\.(png|jpe?g)$/i.test(item.file!.name))) throw new Error('Water masks and measurements need a multispectral GeoTIFF. You can ask visual questions about this benchmark image.')
-      const body = { query: question, observations: chosen.map(metadata) }
+      const body = { query: question, observations: chosen.map(item => {
+        const source = metadata(item)
+        return rendered?.id === item.id ? {...source,image:rendered.image,label:`${item.label} | ${rendered.note}`.slice(0,160)} : source
+      }) }
       // A two-image water measurement follows the same server-side temporal gate.
       if (water && highlighting && chosen.length === 1 && chosen[0].modality === 'optical') {
         setPlan({ task: 'Water grounding', steps: [{tool:'raster-validation',detail:'Check selected green/NIR bands'}, {tool:'NDWI',detail:`Threshold ${threshold}; spectral water candidates`}, {tool:'evidence-report',detail:'Return a pixel-aligned mask and area'}] })
@@ -202,14 +216,17 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
           result = await request<Answer>('/api/studio/answer', { method:'POST', headers:{'Content-Type':'application/json',...(token ? { Authorization:`Bearer ${token}` } : {})}, body:JSON.stringify(body) })
         }
       }
+      result.elapsedSeconds = Math.round((performance.now()-started)/100)/10
       result.query = question; result.sources = chosen.map(item => ({...metadata(item), image:undefined})); result.maskSourceId = result.task === 'temporal-water' ? chosen[1]?.id : chosen[0]?.id
+      if (rendered && chosen.some(item => item.id === rendered.id) && result.mode === 'Bedrock vision preview') result.trace.unshift({tool:'spectral-render',source:rendered.id,view:rendered.note,status:'complete'})
       setAnswers(previous => [...previous, result]); setOverlay(true); setQuery('')
       void saveQuery(question, result.task).catch(() => setError('Analysis completed, but query history could not be saved.'))
     } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
 
   return <div className="analysis-studio">
-    <header className="studio-heading"><div><span className="studio-eyebrow">SATQUERY / ANALYSIS STUDIO</span><h1>Ask a question. Inspect the evidence.</h1></div><button onClick={() => setTour(true)}><Sparkles size={16}/>How it works</button><span className={`studio-connection ${connected ? 'ready' : ''}`}><i/>{connected ? 'Nova configured' : 'Backend not connected'}</span></header>
+    {welcome && <StudioWelcome close={() => setWelcome(false)}/>}
+    <header className="studio-heading"><div><span className="studio-eyebrow">SATQUERY / ANALYSIS STUDIO</span><h1>Ask a question. Inspect the evidence.</h1></div><button onClick={() => setTour(true)}><Sparkles size={16}/>How it works</button></header>
     <div className="studio-grid">
       <div className="studio-inputs" ref={inputsTray}>
       <button className="studio-input-toggle" aria-expanded={inputsOpen} aria-controls="studio-input-panel" onClick={() => setInputsOpen(v => !v)}><Plus size={16}/>Inputs · {selected.length}<ChevronDown size={14}/></button>
@@ -231,7 +248,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       </aside>}
       </div>
       <main className="studio-evidence"><div className="studio-view-toolbar"><span><Layers3 size={16}/>{shown ? shown.date || 'Source observation' : 'Evidence canvas'}</span><div>{chosen.length === 2 && <button className={compare ? 'active' : ''} onClick={() => setCompare(v => !v)}>Compare</button>}{latest?.maskPng && <button className={overlay ? 'active' : ''} onClick={() => setOverlay(v => !v)}>Water overlay</button>}</div></div>
-        <div className="studio-canvas">{shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Start with an observation.</h2><p>Upload GeoTIFF, TIFF, PNG or JPEG, then ask about your selected imagery.</p><button onClick={() => setInputsOpen(true)} disabled={!!busy}>Add observations<ArrowRight size={17}/></button></div>}</div>
+        {shown?.file && shown.modality === 'optical' && /\.tiff?$/i.test(shown.file.name) && <div className="studio-band-presets"><span>Band view</span>{[['rgb','True colour'],['false-color','False colour'],['ndvi','NDVI'],['ndwi','NDWI']].map(([id,label]) => <button key={id} disabled={!!busy} onClick={() => void renderPreset(id)}>{label}</button>)}<small>{rendered?.id === shown.id ? rendered.note : 'B02 / B03 / B04 / B08 required'}</small></div>}<div className="studio-canvas">{shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : rendered?.id === shown.id ? rendered.image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Start with an observation.</h2><p>Upload GeoTIFF, TIFF, PNG or JPEG, then ask about your selected imagery.</p><button onClick={() => setInputsOpen(true)} disabled={!!busy}>Add observations<ArrowRight size={17}/></button></div>}</div>
         {compare && <label className="studio-slider">Earlier<input aria-label="Before after comparison" type="range" min="0" max="100" value={split} onChange={e => setSplit(+e.target.value)}/>Later</label>}
         <div className="studio-provenance"><ShieldCheck size={17}/><div><b>{shown?.source || 'Source-linked evidence'}</b><p>{shown?.processing || 'Original files stay in this session. Selected inputs are reused for every question.'}</p></div></div>
         <details className="studio-advanced"><summary><SlidersHorizontal size={15}/>Advanced water parameters</summary><div><label>Green band<input type="number" min="1" max="16" value={green} onChange={e => setGreen(+e.target.value)}/></label><label>NIR band<input type="number" min="1" max="16" value={nir} onChange={e => setNir(+e.target.value)}/></label><label>NDWI threshold<input type="number" min="-1" max="1" step=".05" value={threshold} onChange={e => setThreshold(+e.target.value)}/></label></div><p>These controls change the actual calculation. Use surface reflectance with the correct scale and offset.</p></details>
@@ -239,14 +256,14 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       {reading && <button className="studio-reading-backdrop" aria-label="Return to imagery" onClick={() => setReading(false)}/>}
       <aside className={`studio-assistant ${reading ? 'studio-reading' : ''}`} aria-label="SatQuery conversation"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><button className="studio-reading-toggle" onClick={() => setReading(v => !v)} aria-expanded={reading}>{reading ? 'Return to imagery' : 'Expand conversation'}{reading ? <X size={16}/> : <ArrowRight size={16}/>}</button></div>
         <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map((prompt,index) => <button key={prompt} onClick={() => {setQuery(prompt);if(index < 2 && assets.length) {setSelected([active || assets[0].id]);setAnswers([])}}}>{prompt}<ArrowRight size={14}/></button>)}</div></div>}
-          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Confidence & accuracy</b>No calibrated confidence score or benchmark accuracy is available for this result.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
-          {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}</div>}
+          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Evidence quality</b>Review source dates, sensor compatibility and the limitations below. Accuracy requires reference labels; no per-answer percentage is inferred.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
+          {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}<span>{elapsed}s elapsed</span></div>}
           {error && <div className="studio-error" role="alert">{error}</div>}
         </div>
         {plan && <details className="studio-plan"><summary><ShieldCheck size={15}/>{plan.task}<ChevronDown size={14}/></summary><ol>{plan.steps.map(step => <li key={step.tool}><b>{step.tool}</b><span>{step.detail}</span></li>)}</ol></details>}
         <form className="studio-composer" onSubmit={e => {e.preventDefault();void run()}}><label htmlFor="studio-query">Ask about your selected images</label><textarea id="studio-query" value={query} onChange={e => setQuery(e.target.value)} placeholder="What changed between these observations?" maxLength={4000} disabled={!!busy}/><div><span>{chosen.length} observation{chosen.length === 1 ? '' : 's'} attached</span><button disabled={!!busy || !query.trim()} type="submit">{busy ? <LoaderCircle size={16}/> : <ArrowRight size={18}/>}Analyse</button></div></form>
       </aside>
     </div>
-    {tour && <div className="studio-tour" role="dialog" aria-modal="true" aria-label="How SatQuery works"><button className="studio-tour-close" onClick={() => setTour(false)} aria-label="Close architecture"><X/></button><span className="studio-eyebrow">FROM QUESTION TO EVIDENCE</span><h2>One question. The right tools.</h2><p>The controller selects an allowed workflow from the question and available inputs.</p><div className="studio-tour-flow">{[['01','Understand','Your question + selected observations'],['02','Validate','Modality · dates · grid · bands'],['03','Execute','Nova visual reasoning or raster tools'],['04','Explain','Answer · visual evidence · tool trace']].map(([number,title,detail],index) => <article style={{animationDelay:`${index*.25}s`}} key={number}><span>{number}</span><h3>{title}</h3><p>{detail}</p></article>)}</div><p className="studio-tour-note">Connected now: Nova interpretation and deterministic water analysis. Remote-sensing adaptation and learned optical–SAR fusion are the next model-development phase.</p><button onClick={() => setTour(false)}>Back to the workspace<ArrowRight size={17}/></button></div>}
+    {tour && <StudioWelcome architecture close={() => setTour(false)}/>}
   </div>
 }

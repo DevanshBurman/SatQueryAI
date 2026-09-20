@@ -149,12 +149,51 @@ def samples():
         item.update(image=_raster_preview(bands), crs=meta['crs'], bounds=meta['bounds'])
     return items
 
+@router.get('/collection')
+def collection():
+    from rasterio.warp import transform_bounds
+    return [{ 'id':item['id'], 'sample_id':item['id'], 'source':item['label'], 'date':item['date'],
+              'cloud':item.get('cloud'), 'resolution_m':10, 'mode':item['modality'], 'thumbnail':item['image'],
+              'bbox':list(transform_bounds(item['crs'], 'EPSG:4326', *item['bounds'])) } for item in samples()]
+
 @router.get('/sample/{sample_id}')
 def sample_file(sample_id: str):
     from fastapi.responses import FileResponse
-    if sample_id not in {'lake-before','lake-after','lake-sar'} or not (SAMPLES / f'{sample_id}.tif').exists():
+    allowed = {item['id'] for item in json.loads((SAMPLES / 'manifest.json').read_text())}
+    if sample_id not in allowed or not (SAMPLES / f'{sample_id}.tif').exists():
         raise HTTPException(404, 'Sample not found')
     return FileResponse(SAMPLES / f'{sample_id}.tif', media_type='image/tiff', filename=f'{sample_id}.tif')
+
+@router.post('/render')
+async def render(file: UploadFile = File(...), preset: Literal['rgb','false-color','ndvi','ndwi'] = Form('rgb')):
+    from backend.main import _save_upload, _read_tiff, _raster_preview
+    from PIL import Image
+    import base64
+    import io
+    path = await _save_upload(file)
+    try:
+        bands, meta = _read_tiff(path)
+        if len(bands) < 4:
+            raise HTTPException(422, 'This preset requires band order blue, green, red, NIR. SAR needs a radar-specific renderer.')
+        valid = np.isfinite(bands[:4]).all(axis=0)
+        if meta['nodata'] is not None:
+            valid &= (bands[:4] != meta['nodata']).all(axis=0)
+        if preset == 'rgb':
+            image = _raster_preview(bands)
+        elif preset == 'false-color':
+            image = _raster_preview(np.stack([bands[1], bands[2], bands[3]]))
+        else:
+            a, b = (bands[3], bands[2]) if preset == 'ndvi' else (bands[1], bands[3])
+            valid &= np.abs(a+b) > 1e-6
+            index = np.divide(a-b, a+b, out=np.zeros_like(a), where=valid)
+            t = np.clip((index+1)/2, 0, 1)
+            rgb = np.stack([210*(1-t), 70+150*t, 55+180*t if preset == 'ndwi' else 60*(1-t)], axis=-1)
+            rgb[~valid] = 0
+            buffer = io.BytesIO(); Image.fromarray(rgb.astype('uint8')).save(buffer, format='PNG')
+            image = 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode()
+        return {'image':image, 'preset':preset, 'note':{'rgb':'RGB: red / green / blue','false-color':'False colour: NIR / red / green','ndvi':'NDVI = (NIR − red) / (NIR + red); scale −1 to +1','ndwi':'NDWI = (green − NIR) / (green + NIR); scale −1 to +1'}[preset]}
+    finally:
+        path.unlink(missing_ok=True)
 
 @router.post('/water')
 async def water(file: UploadFile = File(...), green_band: int = Form(2), nir_band: int = Form(4), threshold: float = Form(.15)):
