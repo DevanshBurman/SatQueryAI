@@ -42,12 +42,22 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   const [compare, setCompare] = useState(false)
   const [split, setSplit] = useState(50)
   const [tour, setTour] = useState(false)
+  const [inputsOpen, setInputsOpen] = useState(false)
+  const inputsTray = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const conversation = useRef<HTMLDivElement>(null)
   const usedScenes = useRef(new Set<string>())
   const chosen = selected.map(id => assets.find(asset => asset.id === id)).filter((v): v is Evidence => !!v)
   const shown = assets.find(asset => asset.id === active) || chosen[0]
   const latest = answers.at(-1)
+  useEffect(() => {
+    if (!inputsOpen) return
+    const close = (event: PointerEvent) => { if (!inputsTray.current?.contains(event.target as Node)) setInputsOpen(false) }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setInputsOpen(false); inputsTray.current?.querySelector<HTMLButtonElement>('.studio-input-toggle')?.focus() } }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', escape)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', escape) }
+  }, [inputsOpen])
   useEffect(() => {
     const container = conversation.current
     if (!container) return
@@ -84,7 +94,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
 
   function add(items: Evidence[]) {
     setAssets(previous => [...previous.filter(old => !items.some(item => old.id === item.id)), ...items])
-    setSelected(items.map(item => item.id).slice(0, 2)); setActive(items[0].id); setAnswers([]); setPlan(undefined)
+    setSelected(items.map(item => item.id).slice(0, 2)); setActive(items[0].id); setAnswers([]); setPlan(undefined); setInputsOpen(false)
   }
   async function loadSamples() {
     setBusy('Loading real Sentinel-2 crops'); setError('')
@@ -105,6 +115,12 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
     try {
       const items: Evidence[] = []
       for (const file of Array.from(files).slice(0, 2)) {
+        if (/\.(png|jpe?g)$/i.test(file.name)) {
+          if (file.size > 3.5 * 1024 * 1024) throw new Error('Use a PNG or JPEG smaller than 3.5 MB.')
+          const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Could not read this image.')); reader.readAsDataURL(file) })
+          items.push({ id: crypto.randomUUID(), label: file.name, source: file.name, date: '', modality: 'optical', file, image, processing: 'Benchmark visual input · no georeferencing or spectral measurements.' })
+          continue
+        }
         const body = new FormData(); body.append('file', file)
         const inspected = await request<{ image: string; crs: string; bounds: number[]; note: string }>('/api/studio/inspect', { method: 'POST', body })
         items.push({ id: crypto.randomUUID(), label: file.name, source: file.name, date: '', modality: 'optical', file, ...inspected, processing: inspected.note })
@@ -129,7 +145,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   async function run() {
     setError(''); setPlan(undefined)
     if (!query.trim()) { setError('Ask a question first.'); return }
-    if (!chosen.length || chosen.some(item => !item.file)) { setError('Select one or two uploaded GeoTIFFs, or load the real Sentinel sample. Catalog thumbnails are discovery references only.'); return }
+    if (!chosen.length || chosen.some(item => !item.file)) { setError('Upload an image or load the Sentinel sample. Catalog references need their matching imagery.'); return }
     const question = query.trim()
     setBusy('Validating inputs and choosing tools')
     try {
@@ -137,6 +153,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       const water = /water|flood|lake|river/i.test(question)
       const highlighting = /highlight|mask|segment|ground|outline/i.test(question)
       const temporal = /change|between|before|after|increased|decreased|compare/i.test(question)
+      if (water && (highlighting || temporal) && chosen.some(item => /\.(png|jpe?g)$/i.test(item.file!.name))) throw new Error('Water masks and measurements need a multispectral GeoTIFF. You can ask visual questions about this benchmark image.')
       const body = { query: question, observations: chosen.map(metadata) }
       // A two-image water measurement follows the same server-side temporal gate.
       if (water && highlighting && chosen.length === 1 && chosen[0].modality === 'optical') {
@@ -169,8 +186,13 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   return <div className="analysis-studio">
     <header className="studio-heading"><div><span className="studio-eyebrow">SATQUERY / ANALYSIS STUDIO</span><h1>Ask a question. Inspect the evidence.</h1></div><button onClick={() => setTour(true)}><Sparkles size={16}/>How it works</button><span className={`studio-connection ${connected ? 'ready' : ''}`}><i/>{connected ? 'Nova configured' : 'Backend not connected'}</span></header>
     <div className="studio-grid">
-      <aside className="studio-assets" inert={!!busy}><div className="studio-panel-title"><h2>Observations</h2><span>{selected.length} selected</span></div>
+      <div className="studio-inputs" ref={inputsTray}>
+      <button className="studio-input-toggle" aria-expanded={inputsOpen} aria-controls="studio-input-panel" onClick={() => setInputsOpen(v => !v)}><Plus size={16}/>Inputs · {selected.length}<ChevronDown size={14}/></button>
+      {inputsOpen && <aside id="studio-input-panel" className="studio-assets" inert={!!busy} aria-label="Observation inputs"><div className="studio-panel-title"><h2>Add observations</h2><button aria-label="Close inputs" onClick={() => setInputsOpen(false)}><X size={16}/></button></div>
         <p className="studio-help">Choose one image, two dates, or an optical–SAR pair.</p>
+        <input type="file" ref={fileInput} hidden accept=".tif,.tiff,.png,.jpg,.jpeg" multiple onChange={e => void upload(e.target.files)}/>
+        <button className="studio-add studio-upload" onClick={() => fileInput.current?.click()} disabled={!!busy}><Upload size={20}/><span>Upload observations<small>GeoTIFF / TIFF · PNG / JPEG</small></span></button>
+        <p className="studio-help">PNG and JPEG are for benchmark visual questions.</p>
         <button className="studio-sample" onClick={loadSamples} disabled={!!busy}><Layers3 size={17}/><span>Try real Sentinel-2 data<small>Upper Lake · two dates · 10 m</small></span><ArrowRight size={16}/></button>
         {assets.some(item => item.file) && <div className="studio-presets"><button onClick={() => preset('single')}>Single</button><button onClick={() => preset('temporal')}>Two dates</button><button onClick={() => preset('fusion')}>Optical + SAR</button></div>}
         <div className="studio-asset-list">{[...assets].sort((a,b) => Number(selected.includes(b.id)) - Number(selected.includes(a.id))).map(item => <article className={`studio-asset ${selected.includes(item.id) ? 'selected' : ''}`} key={item.id}>
@@ -179,12 +201,12 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
           <div className="studio-asset-meta"><select aria-label={`Modality ${item.label}`} value={item.modality} onChange={e => update(item.id,{modality:e.target.value as Evidence['modality']})}><option value="optical">Optical</option><option value="sar">SAR</option></select><input aria-label={`Date ${item.label}`} type="date" value={item.date} onChange={e => update(item.id,{date:e.target.value})}/></div>
           <small>{item.crs || (item.file ? 'No CRS declared' : 'Catalog reference · upload raster')}</small>
         </article>)}</div>
-        <input type="file" ref={fileInput} hidden accept=".tif,.tiff" multiple onChange={e => void upload(e.target.files)}/>
-        <button className="studio-add" onClick={() => fileInput.current?.click()} disabled={!!busy}><Upload size={16}/>Upload GeoTIFF</button><button className="studio-add" onClick={discover}><Search size={16}/>Discover imagery</button>
+        <button className="studio-add" onClick={discover}><Search size={16}/>Discover imagery</button>
         {chosen.length === 2 && <button className="studio-add" onClick={() => {setSelected(v => [...v].reverse());setPlan(undefined);setAnswers([])}}>Swap earlier / later</button>}
-      </aside>
+      </aside>}
+      </div>
       <main className="studio-evidence"><div className="studio-view-toolbar"><span><Layers3 size={16}/>{shown ? shown.date || 'Source observation' : 'Evidence canvas'}</span><div>{chosen.length === 2 && <button className={compare ? 'active' : ''} onClick={() => setCompare(v => !v)}>Compare</button>}{latest?.maskPng && <button className={overlay ? 'active' : ''} onClick={() => setOverlay(v => !v)}>Water overlay</button>}</div></div>
-        <div className="studio-canvas">{shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Your imagery, in context.</h2><p>Load the real Sentinel sample or upload a GeoTIFF. Then ask your first question.</p><button onClick={loadSamples} disabled={!!busy}>Load Sentinel sample<ArrowRight size={17}/></button></div>}</div>
+        <div className="studio-canvas">{shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Start with an observation.</h2><p>Upload GeoTIFF, TIFF, PNG or JPEG, then ask about your selected imagery.</p><button onClick={() => setInputsOpen(true)} disabled={!!busy}>Add observations<ArrowRight size={17}/></button></div>}</div>
         {compare && <label className="studio-slider">Earlier<input aria-label="Before after comparison" type="range" min="0" max="100" value={split} onChange={e => setSplit(+e.target.value)}/>Later</label>}
         <div className="studio-provenance"><ShieldCheck size={17}/><div><b>{shown?.source || 'Source-linked evidence'}</b><p>{shown?.processing || 'Original files stay in this session. Selected inputs are reused for every question.'}</p></div></div>
         <details className="studio-advanced"><summary><SlidersHorizontal size={15}/>Advanced water parameters</summary><div><label>Green band<input type="number" min="1" max="16" value={green} onChange={e => setGreen(+e.target.value)}/></label><label>NIR band<input type="number" min="1" max="16" value={nir} onChange={e => setNir(+e.target.value)}/></label><label>NDWI threshold<input type="number" min="-1" max="1" step=".05" value={threshold} onChange={e => setThreshold(+e.target.value)}/></label></div><p>These controls change the actual calculation. Use surface reflectance with the correct scale and offset.</p></details>
