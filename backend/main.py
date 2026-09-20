@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import math
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel, Field
 from backend.vision import router as vision_router
+from backend.studio import router as studio_router
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -35,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(vision_router)
+app.include_router(studio_router)
 
 
 class CatalogRequest(BaseModel):
@@ -79,7 +82,7 @@ def _fallback_scenes(bbox: list[float]) -> list[dict[str, Any]]:
 
 @app.get("/api/health", tags=["System"])
 def health() -> dict[str, Any]:
-    return {"status": "ok", "service": "SatQueryAI", "engine": f"tifffile {tifffile.__version__}"}
+    return {"status": "ok", "service": "SatQueryAI", "engine": f"tifffile {tifffile.__version__}", "visionConfigured":bool(os.getenv('AWS_REGION') and os.getenv('BEDROCK_MODEL_ID')), "visionModel":os.getenv('BEDROCK_MODEL_ID','')}
 
 
 @app.get("/api/scenarios", tags=["Demonstration"])
@@ -120,13 +123,10 @@ async def catalog_search(request: CatalogRequest) -> dict[str, Any]:
                 "thumbnail": (assets.get("thumbnail") or {}).get("href"),
                 "bbox": feature.get("bbox"),
             })
-        if items:
-            items.sort(key=lambda item: item["date"], reverse=True)
-            return {"provider": "Element 84 Earth Search STAC", "live": True, "scenes": items[:request.limit]}
-    except Exception:
-        pass
-    requested_modes = {"sar" if "sentinel-1" in source else "optical" for source in request.sources}
-    return {"provider": "curated offline catalogue", "live": False, "scenes": [scene for scene in _fallback_scenes(request.bbox) if scene["mode"] in requested_modes]}
+        items.sort(key=lambda item: item["date"], reverse=True)
+        return {"provider": "Element 84 Earth Search STAC", "live": True, "scenes": items[:request.limit]}
+    except Exception as exc:
+        raise HTTPException(503, 'The public imagery catalog is unavailable. Retry or use the bundled real Sentinel samples in Analysis.') from exc
 
 
 @app.post("/api/measure-area", tags=["GIS"])
@@ -139,9 +139,12 @@ def measure_area(request: AreaRequest) -> dict[str, float]:
 
 
 async def _save_upload(upload: UploadFile) -> Path:
+    content = await upload.read(16 * 1024 * 1024 + 1)
+    if len(content) > 16 * 1024 * 1024:
+        raise HTTPException(413, 'Use a GeoTIFF crop smaller than 16 MB')
     suffix = Path(upload.filename or "upload.tif").suffix or ".tif"
     handle = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    handle.write(await upload.read())
+    handle.write(content)
     handle.close()
     return Path(handle.name)
 
@@ -178,6 +181,10 @@ def _geokeys(values: tuple[int, ...] | None) -> dict[int, int]:
 def _read_tiff(path: Path) -> tuple[np.ndarray, dict[str, Any]]:
     with tifffile.TiffFile(path) as tif:
         page = tif.pages[0]
+        if page.imagewidth * page.imagelength * max(1, page.samplesperpixel) > 20_000_000:
+            raise ValueError('Use a smaller raster crop (up to 20 million samples)')
+        if 34264 in page.tags:
+            raise ValueError('Rotated raster grids must be rectified before analysis')
         data = np.asarray(tif.asarray())
         if data.ndim == 2:
             bands = data[np.newaxis, ...]
@@ -241,8 +248,11 @@ def _pixel_area(metadata: dict[str, Any]) -> tuple[float, float, str, str]:
     scale = metadata["scale"]
     if not scale or len(scale) < 2:
         return 1.0, 1.0, "pixels", "Pixel-count comparison; GeoTIFF pixel scale unavailable"
-    if 3072 in metadata["geokeys"]:
+    epsg = metadata['geokeys'].get(3072, 0)
+    if metadata['geokeys'].get(3076) == 9001 or 32601 <= epsg <= 32660 or 32701 <= epsg <= 32760:
         return abs(scale[0] * scale[1]), 10_000.0, "ha", "Projected GeoTIFF pixel size"
+    if metadata['crs'] != 'EPSG:4326':
+        return 1.0, 1.0, 'pixels', 'CRS units unknown; reporting valid pixel counts'
     bounds = metadata["bounds"]
     centre_lon = (bounds[0] + bounds[2]) / 2
     centre_lat = (bounds[1] + bounds[3]) / 2
@@ -256,23 +266,34 @@ def _analyze_paths(before_path: Path, after_path: Path, green_band: int = 2, nir
     after, after_meta = _read_tiff(after_path)
     if before.shape[1:] != after.shape[1:]:
         raise HTTPException(422, "The two rasters must already use the same pixel grid and dimensions")
+    if before_meta['crs'] != after_meta['crs'] or not np.allclose(before_meta['bounds'], after_meta['bounds'], rtol=0, atol=1e-7):
+        raise HTTPException(422, 'CRS and geographic grids differ. Co-register the images before measuring change.')
+    if min(green_band, nir_band) < 1 or green_band == nir_band or not -1 <= threshold <= 1:
+        raise HTTPException(422, 'Choose distinct positive band numbers and a threshold between -1 and 1.')
     if max(green_band, nir_band) > min(len(before), len(after)):
         raise HTTPException(422, "Selected band is missing from one raster")
     green_a, nir_a = before[green_band - 1].astype("float32"), before[nir_band - 1].astype("float32")
     green_b, nir_b = after[green_band - 1].astype("float32"), after[nir_band - 1].astype("float32")
     ndwi_a = (green_a - nir_a) / (green_a + nir_a + 1e-6)
     ndwi_b = (green_b - nir_b) / (green_b + nir_b + 1e-6)
-    water_a, water_b = ndwi_a > threshold, ndwi_b > threshold
+    valid = np.isfinite(green_a) & np.isfinite(nir_a) & np.isfinite(green_b) & np.isfinite(nir_b)
+    valid &= (np.abs(green_a + nir_a) > 1e-6) & (np.abs(green_b + nir_b) > 1e-6)
+    for green, nir, meta in [(green_a, nir_a, before_meta), (green_b, nir_b, after_meta)]:
+        if meta['nodata'] is not None:
+            valid &= (green != meta['nodata']) & (nir != meta['nodata'])
+    if not valid.any():
+        raise HTTPException(422, 'No common valid pixels remain in the selected bands.')
+    water_a, water_b = (ndwi_a > threshold) & valid, (ndwi_b > threshold) & valid
     expansion = water_b & ~water_a
     pixel_area, divisor, area_unit, area_method = _pixel_area(before_meta)
     before_ha = float(water_a.sum() * pixel_area / divisor)
     after_ha = float(water_b.sum() * pixel_area / divisor)
     expanded_ha = float(expansion.sum() * pixel_area / divisor)
     change_pct = ((after_ha - before_ha) / before_ha * 100) if before_ha else 0
-    direction = "increased" if change_pct >= 0 else "decreased"
+    direction = "increased" if change_pct > 0 else "decreased" if change_pct < 0 else 'remained unchanged'
     return {
             "mode": "deterministic GIS calculation",
-            "summary": f"Surface-water extent {direction} by {abs(change_pct):.1f}% across the aligned scene pair.",
+            "summary": (f'Water-index candidates changed from {before_ha:.2f} to {after_ha:.2f} {area_unit}. The very small baseline makes percentage change unreliable; interpret absolute values and inspect the mask.' if water_a.sum() < max(1, valid.sum() * .001) else f"Water-index candidate extent {direction}; net change {change_pct:+.1f}% across common valid pixels. This is not a validated flood classification."),
             "beforeWaterHa": round(before_ha, 2), "afterWaterHa": round(after_ha, 2),
             "expandedAreaHa": round(expanded_ha, 2), "changePercent": round(change_pct, 1),
             "threshold": threshold, "crs": before_meta["crs"] or "unreferenced grid", "areaMethod": area_method, "areaUnit": area_unit,
@@ -280,7 +301,7 @@ def _analyze_paths(before_path: Path, after_path: Path, green_band: int = 2, nir
             "maskPng": _mask_png(expansion),
             "trace": [
                 _trace("Inputs validated", f"Two {before_meta['width']}×{before_meta['height']} rasters; CRS {before_meta['crs'] or 'not declared'}"),
-                _trace("Grids validated", "The uploaded rasters share the same pixel dimensions"),
+                _trace("Grids validated", f"Matching CRS, bounds and dimensions; {int(valid.sum())} common valid pixels"),
                 _trace("Water index computed", f"NDWI threshold {threshold:.2f}; bands {green_band}/{nir_band}"),
                 _trace("Change measured", f"{expanded_ha:.2f} {area_unit} newly detected water"),
             ],
@@ -292,8 +313,10 @@ async def water_change(
     before: UploadFile = File(...), after: UploadFile = File(...),
     green_band: int = Form(2), nir_band: int = Form(4), threshold: float = Form(0.08),
 ) -> dict[str, Any]:
-    paths = [await _save_upload(before), await _save_upload(after)]
+    paths = []
     try:
+        paths.append(await _save_upload(before))
+        paths.append(await _save_upload(after))
         return _analyze_paths(paths[0], paths[1], green_band, nir_band, threshold)
     finally:
         for path in paths:

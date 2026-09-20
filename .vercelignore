@@ -1,5 +1,7 @@
 .env
 .env.local
+**/.env
+**/.env.*
 .pytest_cache
 __pycache__
 node_modules

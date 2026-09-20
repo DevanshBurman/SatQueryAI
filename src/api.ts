@@ -2,6 +2,8 @@ export type ServiceHealth = {
   status: 'ok'
   service: string
   engine: string
+  visionConfigured?: boolean
+  visionModel?: string
 }
 
 export type RasterStatistic = {

@@ -8,4 +8,5 @@ backend/data/
 *.log
 .env
 .env.local
+output/studio/
 test-results/

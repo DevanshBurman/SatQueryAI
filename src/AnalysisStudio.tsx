@@ -1,0 +1,204 @@
+import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, Bot, Check, ChevronDown, Download, Layers3, LoaderCircle, Plus, Search, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X } from 'lucide-react'
+import { analyzeWaterChange, type CatalogScene } from './api'
+import { supabase } from './supabase'
+import './analysis-studio.css'
+
+type Evidence = { id: string; label: string; date: string; modality: 'optical' | 'sar'; image: string; source: string; crs?: string | null; bounds?: number[]; file?: File; processing?: string }
+type Answer = { answer: string; task: string; mode: string; trace: unknown[]; limitations?: string[]; maskPng?: string; maskSourceId?: string; query?: string; elapsedSeconds?: number; sources?: unknown[] }
+type Plan = { task: string; steps: { tool: string; detail: string }[] }
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {signal:AbortSignal.timeout(90000),...init})
+  const payload = await response.json()
+  if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `Request failed (${response.status})`)
+  return payload
+}
+function download(name: string, value: string, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([value], { type }))
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+function metadata(item: Evidence) { const { file: _file, ...rest } = item; return rest }
+function exportReport(answer: Answer) {
+  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
+  download('satquery-evidence-report.html', `<!doctype html><html><head><meta charset="utf-8"><title>SatQuery evidence report</title><style>body{font:16px/1.7 Arial;color:#17394a;max-width:850px;margin:50px auto;padding:30px}h1{font-size:32px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 monospace;background:#f0f6f7;padding:20px}section{white-space:pre-wrap}small{color:#61808b}@media print{body{margin:0}}</style></head><body><small>SATQUERY AI · SOURCE-LINKED EVIDENCE REPORT</small><h1>${escape(answer.query || 'Analysis')}</h1><p>${escape(answer.mode)}</p><section>${escape(answer.answer)}</section><h2>Limitations</h2><section>${escape((answer.limitations || []).join('\n'))}</section><h2>Source observations</h2><pre>${escape(JSON.stringify(answer.sources,null,2))}</pre><h2>Execution record</h2><pre>${escape(JSON.stringify(answer.trace,null,2))}</pre><small>Generated ${new Date().toISOString()} · Save as PDF using your browser's Print command.</small></body></html>`, 'text/html')
+}
+const prompts = ['Describe the land-cover and major objects visible in this image.', 'Highlight the water body in this image.', 'What changed between these two dates?', 'Use the optical and SAR images together to describe water and built-up regions.']
+
+export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes: CatalogScene[]; discover: () => void; saveQuery: (query: string, task: string) => Promise<void> }) {
+  const [assets, setAssets] = useState<Evidence[]>([])
+  const [selected, setSelected] = useState<string[]>([])
+  const [active, setActive] = useState('')
+  const [query, setQuery] = useState('')
+  const [answers, setAnswers] = useState<Answer[]>([])
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+  const [plan, setPlan] = useState<Plan>()
+  const [connected, setConnected] = useState(false)
+  const [threshold, setThreshold] = useState(.15)
+  const [green, setGreen] = useState(2), [nir, setNir] = useState(4)
+  const [overlay, setOverlay] = useState(true)
+  const [compare, setCompare] = useState(false)
+  const [split, setSplit] = useState(50)
+  const [tour, setTour] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const conversation = useRef<HTMLDivElement>(null)
+  const usedScenes = useRef(new Set<string>())
+  const chosen = selected.map(id => assets.find(asset => asset.id === id)).filter((v): v is Evidence => !!v)
+  const shown = assets.find(asset => asset.id === active) || chosen[0]
+  const latest = answers.at(-1)
+  useEffect(() => {
+    const container = conversation.current
+    if (!container) return
+    const target = error ? container.querySelector('.studio-error') : Array.from(container.querySelectorAll('.studio-answer')).at(-1)
+    const top = target ? target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop : 0
+    container.scrollTo({top,behavior:'instant'})
+  }, [answers, error])
+  useEffect(() => {
+    if (!tour) return
+    const previous = document.activeElement as HTMLElement | null
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.studio-tour button'))
+    buttons[0]?.focus()
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTour(false)
+      if (event.key === 'Tab' && buttons.length) {
+        if (event.shiftKey && document.activeElement === buttons[0]) {event.preventDefault();buttons.at(-1)?.focus()}
+        else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {event.preventDefault();buttons[0].focus()}
+      }
+    }
+    document.addEventListener('keydown',handler)
+    return () => {document.removeEventListener('keydown',handler);previous?.focus()}
+  }, [tour])
+
+  useEffect(() => { request<{ configured: boolean }>('/api/studio/status').then(v => setConnected(v.configured)).catch(() => setConnected(false)) }, [])
+  useEffect(() => {
+    const fresh = scenes.filter(scene => !usedScenes.current.has(scene.id))
+    if (!fresh.length) return
+    fresh.forEach(scene => usedScenes.current.add(scene.id))
+    // Catalog selections retain metadata; a thumbnail is never substituted for a raster.
+    const entries: Evidence[] = fresh.map(scene => ({ id: scene.id, label: scene.source, source: scene.id, date: scene.date, modality: scene.mode, image: scene.thumbnail || '', bounds: scene.bbox || undefined, processing: 'Catalog reference. Upload the matching GeoTIFF to analyse its pixels.' }))
+    setAssets(previous => [...previous, ...entries])
+    setActive(entries[0].id)
+  }, [scenes])
+
+  function add(items: Evidence[]) {
+    setAssets(previous => [...previous.filter(old => !items.some(item => old.id === item.id)), ...items])
+    setSelected(items.map(item => item.id).slice(0, 2)); setActive(items[0].id); setAnswers([]); setPlan(undefined)
+  }
+  async function loadSamples() {
+    setBusy('Loading real Sentinel-2 crops'); setError('')
+    try {
+      const items = await request<Evidence[]>('/api/studio/samples')
+      if (!items.length) throw new Error('The Sentinel sample pack is not installed yet.')
+      const loaded = await Promise.all(items.map(async item => {
+        const response = await fetch(`/api/studio/sample/${item.id}`)
+        if (!response.ok) throw new Error('Could not download the sample raster.')
+        return { ...item, file: new File([await response.blob()], `${item.id}.tif`, { type: 'image/tiff' }) }
+      }))
+      add(loaded)
+    } catch (e) { setError((e as Error).message) } finally { setBusy('') }
+  }
+  async function upload(files: FileList | null) {
+    if (!files?.length) return
+    setBusy('Reading raster metadata and previews'); setError('')
+    try {
+      const items: Evidence[] = []
+      for (const file of Array.from(files).slice(0, 2)) {
+        const body = new FormData(); body.append('file', file)
+        const inspected = await request<{ image: string; crs: string; bounds: number[]; note: string }>('/api/studio/inspect', { method: 'POST', body })
+        items.push({ id: crypto.randomUUID(), label: file.name, source: file.name, date: '', modality: 'optical', file, ...inspected, processing: inspected.note })
+      }
+      add(items)
+    } catch (e) { setError((e as Error).message) } finally { setBusy(''); if (fileInput.current) fileInput.current.value = '' }
+  }
+  function toggle(id: string) {
+    setSelected(previous => previous.includes(id) ? previous.filter(v => v !== id) : [...previous, id].slice(-2))
+    setActive(id); setPlan(undefined); setAnswers([])
+  }
+  function update(id: string, patch: Partial<Evidence>) {
+    setAssets(previous => previous.map(item => item.id === id ? { ...item, ...patch } : item)); setPlan(undefined); setAnswers([])
+  }
+  function preset(mode: 'single' | 'temporal' | 'fusion') {
+    const optical = assets.filter(item => item.file && item.modality === 'optical')
+    const radar = assets.find(item => item.file && item.modality === 'sar')
+    const items = mode === 'fusion' ? [optical[0],radar].filter((item): item is Evidence => !!item) : mode === 'temporal' ? optical.slice(0,2) : optical.slice(-1)
+    if (!items.length) return
+    setSelected(items.map(item => item.id)); setActive(items[0].id); setAnswers([]); setPlan(undefined); setCompare(false)
+  }
+  async function run() {
+    setError(''); setPlan(undefined)
+    if (!query.trim()) { setError('Ask a question first.'); return }
+    if (!chosen.length || chosen.some(item => !item.file)) { setError('Select one or two uploaded GeoTIFFs, or load the real Sentinel sample. Catalog thumbnails are discovery references only.'); return }
+    const question = query.trim()
+    setBusy('Validating inputs and choosing tools')
+    try {
+      let result: Answer
+      const water = /water|flood|lake|river/i.test(question)
+      const highlighting = /highlight|mask|segment|ground|outline/i.test(question)
+      const temporal = /change|between|before|after|increased|decreased|compare/i.test(question)
+      const body = { query: question, observations: chosen.map(metadata) }
+      // A two-image water measurement follows the same server-side temporal gate.
+      if (water && highlighting && chosen.length === 1 && chosen[0].modality === 'optical') {
+        setPlan({ task: 'Water grounding', steps: [{tool:'raster-validation',detail:'Check selected green/NIR bands'}, {tool:'NDWI',detail:`Threshold ${threshold}; spectral water candidates`}, {tool:'evidence-report',detail:'Return a pixel-aligned mask and area'}] })
+        setBusy('Computing the water mask from source pixels')
+        const form = new FormData(); form.append('file', chosen[0].file!); form.append('green_band', String(green)); form.append('nir_band', String(nir)); form.append('threshold', String(threshold))
+        result = await request<Answer>('/api/studio/water', { method:'POST', body:form })
+      } else {
+        const route = await request<Plan>('/api/studio/plan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+        setPlan(route)
+        if (water && temporal && route.task === 'temporal' && chosen.every(item => item.modality === 'optical')) {
+          setPlan({ task:'Temporal water change', steps:[{tool:'grid-validator',detail:'Check matching CRS, bounds, dimensions and valid pixels'},{tool:'NDWI change',detail:`Bands ${green}/${nir}; threshold ${threshold}`},{tool:'evidence-report',detail:'Return before/after measurements and expansion mask'}] })
+          setBusy('Measuring change on the common raster grid')
+          const response = await analyzeWaterChange(chosen[0].file!, chosen[1].file!, green, nir, threshold)
+          result = {answer:`${response.summary}\nBefore: ${response.beforeWaterHa} ${response.areaUnit}\nAfter: ${response.afterWaterHa} ${response.areaUnit}\nNew water-index candidates: ${response.expandedAreaHa} ${response.areaUnit}`, task:'temporal-water',mode:response.mode,maskPng:response.maskPng,trace:response.trace,limitations:['Common valid pixels only. Cloud/shadow masking is not applied. Confirm reflectance scale and band mapping.']}
+          setActive(chosen[1].id)
+        } else {
+          setBusy('Nova is examining the selected observations')
+          const session = await supabase?.auth.getSession()
+          const token = session?.data.session?.access_token
+          result = await request<Answer>('/api/studio/answer', { method:'POST', headers:{'Content-Type':'application/json',...(token ? { Authorization:`Bearer ${token}` } : {})}, body:JSON.stringify(body) })
+        }
+      }
+      result.query = question; result.sources = chosen.map(item => ({...metadata(item), image:undefined})); result.maskSourceId = result.task === 'temporal-water' ? chosen[1]?.id : chosen[0]?.id
+      setAnswers(previous => [...previous, result]); setOverlay(true); setQuery('')
+      void saveQuery(question, result.task).catch(() => setError('Analysis completed, but query history could not be saved.'))
+    } catch (e) { setError((e as Error).message) } finally { setBusy('') }
+  }
+
+  return <div className="analysis-studio">
+    <header className="studio-heading"><div><span className="studio-eyebrow">SATQUERY / ANALYSIS STUDIO</span><h1>Ask a question. Inspect the evidence.</h1></div><button onClick={() => setTour(true)}><Sparkles size={16}/>How it works</button><span className={`studio-connection ${connected ? 'ready' : ''}`}><i/>{connected ? 'Nova configured' : 'Backend not connected'}</span></header>
+    <div className="studio-grid">
+      <aside className="studio-assets" inert={!!busy}><div className="studio-panel-title"><h2>Observations</h2><span>{selected.length} selected</span></div>
+        <p className="studio-help">Choose one image, two dates, or an optical–SAR pair.</p>
+        <button className="studio-sample" onClick={loadSamples} disabled={!!busy}><Layers3 size={17}/><span>Try real Sentinel-2 data<small>Upper Lake · two dates · 10 m</small></span><ArrowRight size={16}/></button>
+        {assets.some(item => item.file) && <div className="studio-presets"><button onClick={() => preset('single')}>Single</button><button onClick={() => preset('temporal')}>Two dates</button><button onClick={() => preset('fusion')}>Optical + SAR</button></div>}
+        <div className="studio-asset-list">{[...assets].sort((a,b) => Number(selected.includes(b.id)) - Number(selected.includes(a.id))).map(item => <article className={`studio-asset ${selected.includes(item.id) ? 'selected' : ''}`} key={item.id}>
+          <button className="studio-asset-image" aria-label={`Select ${item.label} ${item.date}`} onClick={() => toggle(item.id)}>{item.image ? <img src={item.image} alt={`${item.label} observation`}/> : <Layers3/>}<span>{selected.includes(item.id) ? <Check size={14}/> : <Plus size={14}/>}</span></button>
+          <div className="studio-asset-name"><button className="studio-view-source" aria-label={`View ${item.label} ${item.date}`} onClick={() => setActive(item.id)}>{item.label}</button><button aria-label={`Remove ${item.label}`} onClick={() => {setAssets(v => v.filter(a => a.id !== item.id));setSelected(v => v.filter(id => id !== item.id));setAnswers([])}}><X size={14}/></button></div>
+          <div className="studio-asset-meta"><select aria-label={`Modality ${item.label}`} value={item.modality} onChange={e => update(item.id,{modality:e.target.value as Evidence['modality']})}><option value="optical">Optical</option><option value="sar">SAR</option></select><input aria-label={`Date ${item.label}`} type="date" value={item.date} onChange={e => update(item.id,{date:e.target.value})}/></div>
+          <small>{item.crs || (item.file ? 'No CRS declared' : 'Catalog reference · upload raster')}</small>
+        </article>)}</div>
+        <input type="file" ref={fileInput} hidden accept=".tif,.tiff" multiple onChange={e => void upload(e.target.files)}/>
+        <button className="studio-add" onClick={() => fileInput.current?.click()} disabled={!!busy}><Upload size={16}/>Upload GeoTIFF</button><button className="studio-add" onClick={discover}><Search size={16}/>Discover imagery</button>
+        {chosen.length === 2 && <button className="studio-add" onClick={() => {setSelected(v => [...v].reverse());setPlan(undefined);setAnswers([])}}>Swap earlier / later</button>}
+      </aside>
+      <main className="studio-evidence"><div className="studio-view-toolbar"><span><Layers3 size={16}/>{shown ? shown.date || 'Source observation' : 'Evidence canvas'}</span><div>{chosen.length === 2 && <button className={compare ? 'active' : ''} onClick={() => setCompare(v => !v)}>Compare</button>}{latest?.maskPng && <button className={overlay ? 'active' : ''} onClick={() => setOverlay(v => !v)}>Water overlay</button>}</div></div>
+        <div className="studio-canvas">{shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Your imagery, in context.</h2><p>Load the real Sentinel sample or upload a GeoTIFF. Then ask your first question.</p><button onClick={loadSamples} disabled={!!busy}>Load Sentinel sample<ArrowRight size={17}/></button></div>}</div>
+        {compare && <label className="studio-slider">Earlier<input aria-label="Before after comparison" type="range" min="0" max="100" value={split} onChange={e => setSplit(+e.target.value)}/>Later</label>}
+        <div className="studio-provenance"><ShieldCheck size={17}/><div><b>{shown?.source || 'Source-linked evidence'}</b><p>{shown?.processing || 'Original files stay in this session. Selected inputs are reused for every question.'}</p></div></div>
+        <details className="studio-advanced"><summary><SlidersHorizontal size={15}/>Advanced water parameters</summary><div><label>Green band<input type="number" min="1" max="16" value={green} onChange={e => setGreen(+e.target.value)}/></label><label>NIR band<input type="number" min="1" max="16" value={nir} onChange={e => setNir(+e.target.value)}/></label><label>NDWI threshold<input type="number" min="-1" max="1" step=".05" value={threshold} onChange={e => setThreshold(+e.target.value)}/></label></div><p>These controls change the actual calculation. Use surface reflectance with the correct scale and offset.</p></details>
+      </main>
+      <aside className="studio-assistant"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><span>Evidence first</span></div>
+        <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map((prompt,index) => <button key={prompt} onClick={() => {setQuery(prompt);if(index < 2 && assets.length) {setSelected([active || assets[0].id]);setAnswers([])}}}>{prompt}<ArrowRight size={14}/></button>)}</div></div>}
+          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><p>{answer.answer}</p>{answer.limitations?.length ? <details><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
+          {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}</div>}
+          {error && <div className="studio-error" role="alert">{error}</div>}
+        </div>
+        {plan && <details className="studio-plan"><summary><ShieldCheck size={15}/>{plan.task}<ChevronDown size={14}/></summary><ol>{plan.steps.map(step => <li key={step.tool}><b>{step.tool}</b><span>{step.detail}</span></li>)}</ol></details>}
+        <form className="studio-composer" onSubmit={e => {e.preventDefault();void run()}}><label htmlFor="studio-query">Ask about your selected images</label><textarea id="studio-query" value={query} onChange={e => setQuery(e.target.value)} placeholder="What changed between these observations?" maxLength={4000} disabled={!!busy}/><div><span>{chosen.length} observation{chosen.length === 1 ? '' : 's'} attached</span><button disabled={!!busy || !query.trim()} type="submit">{busy ? <LoaderCircle size={16}/> : <ArrowRight size={18}/>}Analyse</button></div></form>
+      </aside>
+    </div>
+    {tour && <div className="studio-tour" role="dialog" aria-modal="true" aria-label="How SatQuery works"><button className="studio-tour-close" onClick={() => setTour(false)} aria-label="Close architecture"><X/></button><span className="studio-eyebrow">FROM QUESTION TO EVIDENCE</span><h2>One question. The right tools.</h2><p>The controller selects an allowed workflow from the question and available inputs.</p><div className="studio-tour-flow">{[['01','Understand','Your question + selected observations'],['02','Validate','Modality · dates · grid · bands'],['03','Execute','Nova visual reasoning or raster tools'],['04','Explain','Answer · visual evidence · tool trace']].map(([number,title,detail],index) => <article style={{animationDelay:`${index*.25}s`}} key={number}><span>{number}</span><h3>{title}</h3><p>{detail}</p></article>)}</div><p className="studio-tour-note">Connected now: Nova interpretation and deterministic water analysis. Remote-sensing adaptation and learned optical–SAR fusion are the next model-development phase.</p><button onClick={() => setTour(false)}>Back to the workspace<ArrowRight size={17}/></button></div>}
+  </div>
+}
