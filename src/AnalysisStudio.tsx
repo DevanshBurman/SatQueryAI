@@ -30,6 +30,13 @@ function exportReport(answer: Answer) {
 }
 const prompts = ['Describe the land-cover and major objects visible in this image.', 'Highlight the water body in this image.', 'What changed between these two dates?', 'Use the optical and SAR images together to describe water and built-up regions.']
 
+function ReadableAnswer({ text }: { text: string }) {
+  return <div className="studio-answer-copy">{text.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => {
+    const heading = paragraph.match(/^(Evidence|Limitations|Summary|Answer|Observations|Conclusion):\s*/i)
+    return <section key={index}>{heading && <h3>{heading[1]}</h3>}<p>{heading ? paragraph.slice(heading[0].length) : paragraph}</p></section>
+  })}</div>
+}
+
 export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes: CatalogScene[]; discover: () => void; saveQuery: (query: string, task: string) => Promise<void> }) {
   const [assets, setAssets] = useState<Evidence[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -46,6 +53,13 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   const [compare, setCompare] = useState(false)
   const [split, setSplit] = useState(50)
   const [tour, setTour] = useState(false)
+  const [reading, setReading] = useState(false)
+  useEffect(() => {
+    if (!reading) return
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setReading(false) }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [reading])
   const [inputsOpen, setInputsOpen] = useState(false)
   const inputsTray = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -157,6 +171,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
     if (!query.trim()) { setError('Ask a question first.'); return }
     if (!chosen.length || chosen.some(item => !item.file)) { setError('Upload an image or load the Sentinel sample. Catalog references need their matching imagery.'); return }
     const question = query.trim()
+    setReading(true); setInputsOpen(false)
     setBusy('Validating inputs and choosing tools')
     try {
       let result: Answer
@@ -221,9 +236,10 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
         <div className="studio-provenance"><ShieldCheck size={17}/><div><b>{shown?.source || 'Source-linked evidence'}</b><p>{shown?.processing || 'Original files stay in this session. Selected inputs are reused for every question.'}</p></div></div>
         <details className="studio-advanced"><summary><SlidersHorizontal size={15}/>Advanced water parameters</summary><div><label>Green band<input type="number" min="1" max="16" value={green} onChange={e => setGreen(+e.target.value)}/></label><label>NIR band<input type="number" min="1" max="16" value={nir} onChange={e => setNir(+e.target.value)}/></label><label>NDWI threshold<input type="number" min="-1" max="1" step=".05" value={threshold} onChange={e => setThreshold(+e.target.value)}/></label></div><p>These controls change the actual calculation. Use surface reflectance with the correct scale and offset.</p></details>
       </main>
-      <aside className="studio-assistant"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><span>Evidence first</span></div>
+      {reading && <button className="studio-reading-backdrop" aria-label="Return to imagery" onClick={() => setReading(false)}/>}
+      <aside className={`studio-assistant ${reading ? 'studio-reading' : ''}`} aria-label="SatQuery conversation"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><button className="studio-reading-toggle" onClick={() => setReading(v => !v)} aria-expanded={reading}>{reading ? 'Return to imagery' : 'Expand conversation'}{reading ? <X size={16}/> : <ArrowRight size={16}/>}</button></div>
         <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map((prompt,index) => <button key={prompt} onClick={() => {setQuery(prompt);if(index < 2 && assets.length) {setSelected([active || assets[0].id]);setAnswers([])}}}>{prompt}<ArrowRight size={14}/></button>)}</div></div>}
-          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><p>{answer.answer}</p>{answer.limitations?.length ? <details><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
+          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Confidence & accuracy</b>No calibrated confidence score or benchmark accuracy is available for this result.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
           {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}</div>}
           {error && <div className="studio-error" role="alert">{error}</div>}
         </div>
