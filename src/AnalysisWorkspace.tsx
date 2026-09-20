@@ -18,7 +18,7 @@ const PROJECTS = [
 ]
 
 
-function BrandMark() { return <span className="sq-brand-mark" aria-hidden="true"><i /><i /></span> }
+function BrandMark() { return <span className="sq-brand-mark" aria-hidden="true"><img src="/satquery-mark.svg" alt="" /></span> }
 
 function SideNavigation({ current, navigate, home, accountName, openAccount }: { current: Section; navigate: (section: Section) => void; home: () => void; accountName: string; openAccount: () => void }) {
   const items = [['projects', 'Home', Home], ['analysis', 'Analysis', BarChart3], ['data', 'Data', Database], ['results', 'Results', FileText], ['activity', 'History', History]] as const

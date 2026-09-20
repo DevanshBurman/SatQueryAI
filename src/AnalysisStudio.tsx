@@ -10,7 +10,11 @@ type Plan = { task: string; steps: { tool: string; detail: string }[] }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {signal:AbortSignal.timeout(90000),...init})
-  const payload = await response.json()
+  const text = await response.text()
+  let payload
+  try { payload = JSON.parse(text) } catch {
+    throw new Error('The analysis service is unavailable. Start the backend and try again.')
+  }
   if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `Request failed (${response.status})`)
   return payload
 }
@@ -81,7 +85,13 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
     return () => {document.removeEventListener('keydown',handler);previous?.focus()}
   }, [tour])
 
-  useEffect(() => { request<{ configured: boolean }>('/api/studio/status').then(v => setConnected(v.configured)).catch(() => setConnected(false)) }, [])
+  useEffect(() => {
+    let mounted = true
+    const check = () => request<{ configured: boolean }>('/api/studio/status').then(v => { if (mounted) setConnected(v.configured) }).catch(() => { if (mounted) setConnected(false) })
+    void check()
+    const timer = setInterval(check, 15000)
+    return () => { mounted = false; clearInterval(timer) }
+  }, [])
   useEffect(() => {
     const fresh = scenes.filter(scene => !usedScenes.current.has(scene.id))
     if (!fresh.length) return

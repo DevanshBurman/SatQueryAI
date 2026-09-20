@@ -18,8 +18,8 @@
 .satquery-app footer span:last-child { margin-left: 0; }
 .satquery-app .crumb { display: block; position: static; width: auto; height: auto; padding: 0; margin: 0; background: none; border: 0; }
 .satquery-app .sq-brand-mark { display: inline-block; position: relative; width: 28px; height: 28px; flex: 0 0 28px; }
-.satquery-app .sq-brand-mark i { position:absolute; width:17px; height:22px; top:2px; left:1px; border-radius:80% 22% 75% 25%; background:#ff984f; transform:rotate(15deg); }
-.satquery-app .sq-brand-mark i+i { left:13px; top:5px; background:#ffb87d; transform:rotate(195deg); }
+.satquery-app .sq-brand-mark img { display:block; width:100%; height:100%; object-fit:contain; }
+.satquery-app .sidebar-brand .sq-brand-mark img { content:url('/satquery-mark-light.svg'); }
 .satquery-app .workspace-sidebar { width:var(--rail); grid-row:1 / -1; background:linear-gradient(165deg,#263e50,#102638); }
 .satquery-app .workspace-sidebar:focus-within { width:var(--rail); box-shadow:none; }
 .satquery-app .workspace-sidebar:is(:hover,:has(:focus-visible)) { width:218px; box-shadow:10px 0 28px #07172838; }

@@ -13,7 +13,7 @@ const chapters = [
   {title:'Take evidence with you.',copy:'Bring the observations, measurements and source imagery into one reviewable brief. Give the next person the context behind the decision.',label:'Review the result', icon:FileText},
 ]
 
-function Identity(){return <span className="sq-identity"><svg viewBox="0 0 60 58" aria-hidden="true"><path fill="#ff9838" d="M5 26C10 4 37 20 53 4C53 25 23 13 5 26Z"/><path fill="#f5fcff" d="M4 39C12 16 40 33 54 17C53 38 22 26 4 39Z"/><path fill="#27bb87" d="M3 52C13 29 40 45 53 31C51 52 22 39 3 52Z"/></svg><span>SatQuery AI</span></span>}
+function Identity(){return <span className="sq-identity"><img src="/satquery-mark-light.svg" alt="" width="46" height="46"/><span>Sat<span style={{color:'#00bce5'}}>Query</span><small style={{display:'block',fontSize:9,letterSpacing:'1.5px',marginTop:5}}>BOLD INSIGHTS FROM ABOVE</small></span></span>}
 
 function FloodShape({className=''}:{className?:string}){return <RiverScene className={'sq-boundary '+className}/>}
 
