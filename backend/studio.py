@@ -14,6 +14,16 @@ from backend.vision import Observation, VisionRequest, invoke, image_block
 
 router = APIRouter(prefix='/api/studio', tags=['Analysis workspace'])
 SAMPLES = Path(__file__).parent / 'samples'
+# These are the WGS84 footprints of the bundled Upper Lake GeoTIFF crops.
+# Keeping them alongside the manifest avoids requiring rasterio in the Vercel
+# function just to transform fixed, known sample bounds at request time.
+SAMPLE_BOUNDS = {
+    'lake-before': [77.30223530891462, 23.223325166115295, 77.32763719274776, 23.246799634140256],
+    'lake-after': [77.30223530891462, 23.223325166115295, 77.32763719274776, 23.246799634140256],
+    'lake-sar': [77.30223530891462, 23.223325166115295, 77.32763719274776, 23.246799634140256],
+    'wide-before': [77.27452730821419, 23.23654607568641, 77.3253366982593, 23.28349131709571],
+    'wide-after': [77.27452730821419, 23.23654607568641, 77.3253366982593, 23.28349131709571],
+}
 
 class Evidence(Observation):
     date: str = ''
@@ -151,10 +161,9 @@ def samples():
 
 @router.get('/collection')
 def collection():
-    from rasterio.warp import transform_bounds
-    return [{ 'id':item['id'], 'sample_id':item['id'], 'source':item['label'], 'date':item['date'],
-              'cloud':item.get('cloud'), 'resolution_m':10, 'mode':item['modality'], 'thumbnail':item['image'],
-              'bbox':list(transform_bounds(item['crs'], 'EPSG:4326', *item['bounds'])) } for item in samples()]
+    return [{ 'id': item['id'], 'sample_id': item['id'], 'source': item['label'], 'date': item['date'],
+              'cloud': item.get('cloud'), 'resolution_m': 10, 'mode': item['modality'], 'thumbnail': item['image'],
+              'bbox': SAMPLE_BOUNDS[item['id']] } for item in samples()]
 
 @router.get('/sample/{sample_id}')
 def sample_file(sample_id: str):
