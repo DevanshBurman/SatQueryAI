@@ -104,7 +104,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
         const items = await Promise.all(downloadable.map(async scene => {
           const item = all.find(value => value.id === scene.sample_id)
           if (!item) throw new Error('Source raster is unavailable')
-          const response = await fetch(`/api/studio/sample/${item.id}`)
+          const response = await fetch(`/api/studio/sample-file?sample_id=${encodeURIComponent(item.id)}`)
           if (!response.ok) throw new Error('Source raster download failed')
           return {...item,file:new File([await response.blob()],`${item.id}.tif`,{type:'image/tiff'})}
         }))
@@ -136,7 +136,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       const items = await request<Evidence[]>('/api/studio/samples')
       if (!items.length) throw new Error('The Sentinel sample pack is not installed yet.')
       const loaded = await Promise.all(items.map(async item => {
-        const response = await fetch(`/api/studio/sample/${item.id}`)
+        const response = await fetch(`/api/studio/sample-file?sample_id=${encodeURIComponent(item.id)}`)
         if (!response.ok) throw new Error('Could not download the sample raster.')
         return { ...item, file: new File([await response.blob()], `${item.id}.tif`, { type: 'image/tiff' }) }
       }))

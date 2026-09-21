@@ -165,13 +165,21 @@ def collection():
               'cloud': item.get('cloud'), 'resolution_m': 10, 'mode': item['modality'], 'thumbnail': item['image'],
               'bbox': SAMPLE_BOUNDS[item['id']] } for item in samples()]
 
-@router.get('/sample/{sample_id}')
-def sample_file(sample_id: str):
+def _sample_file(sample_id: str):
     from fastapi.responses import FileResponse
     allowed = {item['id'] for item in json.loads((SAMPLES / 'manifest.json').read_text())}
     if sample_id not in allowed or not (SAMPLES / f'{sample_id}.tif').exists():
         raise HTTPException(404, 'Sample not found')
     return FileResponse(SAMPLES / f'{sample_id}.tif', media_type='image/tiff', filename=f'{sample_id}.tif')
+
+@router.get('/sample-file')
+def sample_file_query(sample_id: str):
+    """Vercel-safe sample download route using a query parameter."""
+    return _sample_file(sample_id)
+
+@router.get('/sample/{sample_id}')
+def sample_file(sample_id: str):
+    return _sample_file(sample_id)
 
 @router.post('/render')
 async def render(file: UploadFile = File(...), preset: Literal['rgb','false-color','ndvi','ndwi'] = Form('rgb')):
