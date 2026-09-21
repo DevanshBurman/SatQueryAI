@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, X } from 'lucide-react'
 import './studio-welcome.css'
+import './workflow-guide.css'
 
 const capabilities = [
   ['Understand','A scene becomes|a conversation.','What can you see around this lake?','Ask about water, vegetation and visible development. Keep the answer beside the imagery.'],
   ['Locate','Find the water.|See the evidence.','Highlight the water body.','Green and near-infrared bands produce a water-candidate mask. Inspect the threshold and source pixels.'],
   ['Compare','Two dates.|A clearer picture.','How has the water extent changed?','Compare corresponding observations and measure water-index change on a shared raster grid.'],
   ['Combine','Different sensors.|Shared context.','What does each sensor reveal?','Bring aligned optical and radar observations together for complementary visual interpretation.'],
+]
+const exploreCards = [
+  { number: '01', label: 'Understand', eyebrow: 'ONE OBSERVATION', title: 'Ask what the scene reveals.', copy: 'Upload optical, multispectral, or SAR imagery. SatQuery keeps the source in view while it explains visible land cover and objects.', prompt: '“Describe the land cover and major objects visible in this image.”', image: '/welcome-single-scene.png' },
+  { number: '02', label: 'Compare', eyebrow: 'TWO DATES', title: 'See what changed—and where.', copy: 'Bring corresponding observations from different dates. The controller checks their compatibility before routing a temporal evidence workflow.', prompt: '“Has the built-up area increased, decreased, or remained unchanged?”', image: '/welcome-temporal-change.png' },
+  { number: '03', label: 'Combine', eyebrow: 'OPTICAL + SAR', title: 'Read complementary evidence.', copy: 'Pair co-registered optical detail with radar structure. Each sensor contributes different evidence to a single reviewable answer.', prompt: '“Use both sensors to identify built-up and water-covered regions.”', image: '/welcome-sensor-fusion.png' },
+  { number: '04', label: 'Measure', eyebrow: 'GIS SPECIALISTS', title: 'Inspect pixels, indices, and masks.', copy: 'Render RGB and false colour, inspect NDVI or NDWI, and return spatial evidence when suitable source rasters are available.', prompt: '“Highlight the water body and show the method used.”', image: '/welcome-spectral-tools.png' },
 ]
 const pipeline = [
   ['Acquire','Start with|the right evidence.','Sources, dates and sensors','Bring an observation or a corresponding pair. Source identities stay attached throughout analysis.'],
@@ -20,6 +27,7 @@ const pipeline = [
 export default function StudioWelcome({close,architecture=false}:{close:()=>void;architecture?:boolean}) {
   const panel=useRef<HTMLDivElement>(null)
   const [step,setStep]=useState(0)
+  const [showSplash,setShowSplash]=useState(!architecture)
   const entries=architecture?pipeline:capabilities, current=entries[step]
   useEffect(()=>{
     const previous=document.activeElement as HTMLElement
@@ -36,6 +44,27 @@ export default function StudioWelcome({close,architecture=false}:{close:()=>void
     window.addEventListener('keydown',key)
     return()=>{window.removeEventListener('keydown',key);previous?.focus()}
   },[close])
+  useEffect(()=>{
+    if(architecture) return
+    const timeout=window.setTimeout(()=>setShowSplash(false),2650)
+    return()=>window.clearTimeout(timeout)
+  },[architecture])
+  useEffect(()=>{
+    if(architecture||showSplash) return
+    const interval=window.setInterval(()=>setStep(value=>(value+1)%exploreCards.length),5600)
+    return()=>window.clearInterval(interval)
+  },[architecture,showSplash])
+  if(!architecture) return <div className="welcome-shade welcome-explore-shade"><div ref={panel} className="studio-explore-guide" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <button className="guide-close" onClick={close} aria-label="Close introduction"><X size={20}/></button>
+    {showSplash ? <div className="explore-brand-splash" aria-hidden="true"><div className="explore-logo"><img src="/satquery-mark.svg" alt=""/><strong>SatQuery</strong></div><span>VISION-LANGUAGE EARTH INTELLIGENCE</span><div className="explore-orbit"><i/><i/><i/></div><small>Preparing your analysis workspace</small></div> : <>
+      <header className="explore-heading"><div className="explore-brand-mini"><img src="/satquery-mark.svg" alt=""/><b>SatQuery</b></div><div><span>EXPLORE SATQUERY</span><small>{exploreCards[step].number} / 04</small></div></header>
+      <section className="explore-stage" key={exploreCards[step].number} aria-live="polite">
+        <article className="explore-story"><span>{exploreCards[step].eyebrow}</span><h2 id="guide-title">{exploreCards[step].title}</h2><p>{exploreCards[step].copy}</p><blockquote>{exploreCards[step].prompt}</blockquote></article>
+        <figure><img src={exploreCards[step].image} alt="Illustrative remote-sensing workflow artwork"/><figcaption>Illustrative workflow visual · source evidence remains inspectable</figcaption></figure>
+      </section>
+      <nav className="explore-steps" aria-label="Explore SatQuery capabilities">{exploreCards.map((card,index)=><button key={card.number} aria-current={step===index?'step':undefined} onClick={()=>setStep(index)}><span>{card.number}</span>{card.label}</button>)}</nav>
+    </>}
+  </div></div>
   return <div className="welcome-shade"><div ref={panel} className="studio-welcome-guide" role="dialog" aria-modal="true" aria-labelledby="guide-title">
     <button className="guide-close" onClick={close} aria-label={architecture?'Close architecture':'Close introduction'}><X size={20}/></button>
     <div className={'guide-art guide-art-'+step}>
