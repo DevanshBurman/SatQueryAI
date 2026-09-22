@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SatQuery AI · Behind the answer</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Arial,Helvetica,sans-serif;color:#12354a;background:#e7edf0}button,input,label{font:inherit}button,label.audio{cursor:pointer}button:focus-visible,input:focus-visible,label:focus-within{outline:3px solid #00b6ca;outline-offset:4px}button{color:inherit}body{padding:24px}main{max-width:1440px;margin:auto}.preview{position:relative;width:100%;aspect-ratio:16/9;background:#f9fbfc;overflow:hidden;box-shadow:0 22px 70px #14314916}.stage{width:1920px;height:1080px;position:absolute;top:0;left:0;transform-origin:0 0;overflow:hidden;background:#f9fbfc;--teal:#008f99;--cyan:#12cbd2;--ink:#12354a;--muted:#6a8592}.stage:before{content:"";position:absolute;inset:0;background-image:radial-gradient(#bed0d7 1px,transparent 1px);background-size:28px 28px;opacity:.24;mask-image:linear-gradient(90deg,transparent 25%,black)}.glow{position:absolute;width:920px;height:920px;right:-260px;top:-220px;background:radial-gradient(circle,#d7f6f3,transparent 65%);opacity:.8}.brand{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:17px;z-index:10;font-size:31px;font-weight:700;letter-spacing:-1.2px}.brand img{width:45px;height:42px}.brand span{color:#008f99}.edition{position:absolute;right:100px;top:78px;font-size:15px;letter-spacing:3px;color:#6d8895;z-index:10}.scene{position:absolute;inset:0;opacity:0;visibility:hidden;pointer-events:none}.scene .eyebrow{position:absolute;left:100px;top:196px;font-size:16px;color:#008f99;font-weight:700;letter-spacing:3px;display:flex;align-items:center;gap:16px}.eyebrow:before{content:"";width:30px;height:2px;background:#08bdc9}.scene h1{position:absolute;left:100px;top:238px;margin:0;font-size:79px;font-weight:700;line-height:1.06;letter-spacing:-4px;max-width:780px}.scene h1 em{color:#008f99;font-style:normal}.deck{position:absolute;left:104px;top:446px;font-size:25px;line-height:1.6;max-width:540px;color:#698391;margin:0}.scene-label{position:absolute;left:104px;top:790px;color:#708993;font-size:15px;letter-spacing:2px;text-transform:uppercase}.note{color:#6a8392;font-size:18px;line-height:1.5}.chip{display:inline-flex;align-items:center;gap:10px;padding:11px 17px;background:#eaf7f6;border:1px solid #cfe9e7;color:#16838a;font-size:17px}.dot{width:7px;height:7px;background:#08b5bb;border-radius:50%;display:inline-block}.icon{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.card{background:white;border:1px solid #d6e2e7;box-shadow:0 20px 44px #12354a08}.mini{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6c8793}.footer{position:absolute;left:100px;right:100px;bottom:62px;z-index:10}.steps{display:flex;align-items:center;gap:0;margin-bottom:20px}.step{flex:1;display:flex;align-items:center;gap:12px;color:#8297a2;font-size:17px;transition:color .15s}.step b{font-weight:400;font-size:12px;color:#8ea5af}.step.active{color:#008d96}.step.done{color:#274c5d}.track{height:2px;background:#e0e9ee;position:relative}.track i{display:block;height:2px;background:#03b9c4;width:0}.footer-line{display:flex;justify-content:space-between;margin-top:16px;font-size:11px;letter-spacing:2px;color:#8ca0ab}.credit{position:absolute;right:100px;bottom:172px;font-size:12px;letter-spacing:1px;color:#8c9da6}
+/* 01 - A question becomes a workflow. */
+.hero h1{font-size:94px;top:262px;max-width:830px}.hero .deck{top:508px;max-width:680px}.question{position:absolute;left:104px;top:658px;width:830px;min-height:118px;display:flex;align-items:center;padding:25px 28px;gap:22px;border-left:4px solid #0abcc7;font-size:27px;line-height:1.4}.question .icon{color:#00a1ac;flex-shrink:0}.caret{color:#00a5ac}.core-art{position:absolute;right:174px;top:276px;width:480px;height:480px}.orbit{position:absolute;inset:0;border:1px solid #cce3e6;border-radius:50%}.orbit.inner{inset:64px;border-style:dashed}.core-art .core{position:absolute;inset:143px;background:#fff;box-shadow:0 30px 80px #07526815;border:1px solid #c7e5e7;display:grid;place-items:center;border-radius:32px}.core img{width:98px}.orbit-node{position:absolute;padding:16px 20px;background:white;border:1px solid #d9e8ec;display:flex;align-items:center;gap:12px;font-size:19px;box-shadow:0 10px 30px #12354a06}.orbit-node:nth-of-type(4){top:30px;left:15px}.orbit-node:nth-of-type(5){right:-55px;top:225px}.orbit-node:nth-of-type(6){bottom:7px;left:25px}.orbit-node .icon{color:#009aa4;width:24px;height:24px}
+/* 02 - Ingestion */
+.file-stack{position:absolute;left:770px;top:278px;width:430px;height:466px}.file{position:absolute;width:318px;height:350px;background:#fff;border:1px solid #cfdfe6;padding:27px;box-shadow:0 24px 55px #12354a0c}.file.back{left:92px;top:-18px;transform:rotate(9deg);background:#edf7f7}.file.mid{left:38px;top:24px;transform:rotate(-6deg);background:#f6fafb}.file.front{left:0;top:54px}.file-top{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:700}.file-top .icon{color:#0aa6b0}.raster-grid{height:154px;margin:25px 0 20px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.raster-grid i{background:#b5d7cd}.file small{display:block;font-size:14px;color:#748f99;margin-top:7px}.metadata{position:absolute;left:1330px;top:308px;width:440px;padding:33px}.metadata h3{margin:0 0 27px;font-size:24px;letter-spacing:-.6px}.meta-row{display:flex;justify-content:space-between;padding:18px 0;border-top:1px solid #e7eef1;font-size:18px;color:#7b919c}.meta-row b{font-weight:500;color:#214859}.connector{position:absolute;left:1190px;top:485px;width:124px;height:2px;background:#c4e3e5}.connector i{position:absolute;left:0;top:-3px;width:25px;height:8px;background:#13bfc7;box-shadow:0 0 15px #13bfc755}.ingest .chip{position:absolute;left:104px;top:652px}
+/* 03 - Validation */
+.validation-panel{position:absolute;left:825px;top:232px;width:915px;padding:35px 42px}.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}.panel-head h3{margin:0;font-size:26px;letter-spacing:-.6px}.panel-head .chip{font-size:14px}.check-row{display:flex;align-items:center;gap:20px;padding:22px 0;border-top:1px solid #e6edef;font-size:22px}.check-row>svg{color:#7a95a1;width:26px;height:26px}.check-row strong{font-size:20px;font-weight:500}.check-row small{font-size:16px;color:#80949e;margin-left:auto;margin-right:15px}.checkmark{display:grid;place-items:center;width:30px;height:30px;color:#008b87;background:#e3f7f2;border-radius:50%;font-size:19px}.validate .deck{top:449px;max-width:590px}
+/* 04 - Routing */
+.routing h1{font-size:70px;top:241px}.routing .deck{top:417px;max-width:490px}.controller{position:absolute;left:710px;top:454px;width:226px;height:157px;background:#12354a;color:#fff;padding:29px;box-shadow:0 20px 45px #12354a14}.controller .icon{color:#43dadd;margin-bottom:14px}.controller b{display:block;font-size:24px;font-weight:500}.route-lines{position:absolute;left:936px;top:290px;width:235px;height:520px;overflow:visible}.route-lines path{fill:none;stroke:#c9dee4;stroke-width:2}.route-lines .live{stroke:#0bb5c0;stroke-dasharray:10 12}.route-list{position:absolute;left:1175px;top:251px;width:605px;display:flex;flex-direction:column;gap:17px}.route{padding:23px 26px;display:flex;gap:20px;align-items:center;min-height:116px;box-shadow:none}.route .glyph{display:grid;place-items:center;width:60px;height:60px;flex-shrink:0;background:#f1f7f9;color:#68909e}.route h3{font-size:23px;margin:0 0 9px;letter-spacing:-.4px}.route p{font-size:16px;color:#7d939e;margin:0}.route.active{border-color:#14b9c0;background:#f7fdfc;box-shadow:0 10px 40px #0ba1aa10}.route.active .glyph{background:#dff7f3;color:#008d99}.route-tag{position:absolute;left:104px;top:673px;border-left:3px solid #0bb9c3;padding-left:20px;font-size:20px;line-height:1.5;color:#59808b;max-width:450px}
+/* 05 - Execution record */
+.execute .deck{top:445px}.execution{position:absolute;left:846px;top:254px;width:860px;padding:37px}.execution .panel-head{margin-bottom:35px}.execution-line{display:grid;grid-template-columns:38px 1fr auto;gap:15px;padding:21px 0;border-top:1px solid #e6eef1;font-size:22px;align-items:center}.execution-line .num{font-size:13px;color:#8da4ac}.execution-line small{font-size:15px;color:#5d8e91}.receipt{margin-top:25px;padding:22px;background:#eff8f7;border-left:3px solid #0bb1bb;display:flex;align-items:center;gap:18px;font-size:21px}.receipt .icon{color:#0598a2}.execute .chip{position:absolute;top:648px;left:104px}
+/* 06 - Evidence */
+.report{position:absolute;left:1120px;top:215px;width:587px;height:615px;padding:38px 40px;box-shadow:0 32px 70px #12354a12}.report-head{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}.report-head img{width:27px}.report h3{font-size:29px;letter-spacing:-1px;margin:29px 0 17px}.report .line{height:7px;background:#e5edf0;margin:12px 0;width:100%}.report .line.short{width:68%}.report-block{margin-top:29px;border-top:1px solid #e5edef;padding-top:21px}.report-block b{font-size:15px;color:#1c6470;display:block;margin-bottom:14px}.report-pills{display:flex;gap:8px;margin-top:21px}.report-pills span{font-size:12px;background:#edf6f6;padding:8px;color:#4f7982}.evidence-tag{position:absolute;left:792px;width:282px;padding:24px;display:flex;align-items:center;gap:15px;font-size:20px;border-left:3px solid #10b8c3}.evidence-tag .icon{color:#059ba5}.evidence-tag:nth-of-type(1){top:331px}.evidence-tag:nth-of-type(2){top:465px}.evidence-tag:nth-of-type(3){top:599px}.evidence .deck{top:446px;max-width:550px}
+/* 07 - Closing system */
+.closing h1{font-size:87px;max-width:900px;top:226px}.closing .deck{top:448px;max-width:800px}.system{position:absolute;left:104px;right:104px;top:631px;display:flex;align-items:center;gap:20px}.system-box{flex:1;padding:30px 25px;height:123px;display:flex;flex-direction:column;gap:17px;font-size:22px;font-weight:700;letter-spacing:-.5px}.system-box small{font-size:12px;font-weight:400;color:#78929d;letter-spacing:1px}.system-arrow{color:#34acb4;font-size:25px}.system-box.focus{background:#12354a;color:#fff;border-color:#12354a}.system-box.focus small{color:#89cbd2}.modular{position:absolute;right:118px;top:321px;padding:24px;border:1px dashed #79b5bb;color:#23838b;font-size:19px;max-width:295px;line-height:1.5}.closing .scene-label{top:820px}.subtitle{position:absolute;bottom:191px;left:290px;right:290px;z-index:12;text-align:center;font-size:22px;color:#12354a;background:#f9fbfceb;padding:14px 26px;display:none;line-height:1.45}.show-captions .subtitle{display:block}.countdown{display:none;position:absolute;inset:0;z-index:30;background:#f9fbfc;place-items:center;font-size:170px;font-weight:700;color:#12354a}.countdown.on{display:grid}
+/* Controls never appear in the recorded frame. */
+.controls{padding:22px 0 14px}.control-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.controls button,.audio{border:1px solid #c6d8df;background:#fff;border-radius:5px;padding:10px 16px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:8px}.controls button.primary{background:#12354a;color:#fff;border-color:#12354a}.controls input[type=range]{flex:1;min-width:170px;accent-color:#008e98}.clock{font-variant-numeric:tabular-nums;font-size:13px;min-width:90px;text-align:right}.controls .options{margin-top:15px;font-size:12px;color:#54717f;display:flex;gap:19px;align-items:center;flex-wrap:wrap}.options input[type=number]{width:63px;padding:7px;border:1px solid #c5d9df;background:#fff;color:#12354a;border-radius:4px}.options label{display:flex;align-items:center;gap:7px}.audio input{position:absolute;width:1px;height:1px;opacity:0}.cuebar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}.cuebar button{background:transparent;font-size:11px;color:#5c7785;padding:8px 10px}.cuebar button.selected{border-color:#0099a1;color:#007e85;background:#e1f4f2}.instructions{font-size:13px;color:#68828f;line-height:1.6;max-width:1000px;margin:15px 0}.instructions b{color:#264b5c}.script-panel{background:#f5f9fa;border:1px solid #d5e1e6;padding:20px;margin-top:17px;font-size:14px;line-height:1.8;color:#526e7d}.script-panel summary{cursor:pointer;color:#153a4c;font-weight:700}.script-panel p{max-width:1050px}.cue-time{font-weight:700;color:#058792}#audioStatus{font-size:12px;color:#4d7783}.preview:fullscreen{width:100vw;height:100vh;aspect-ratio:auto;background:#f9fbfc;box-shadow:none}.preview:fullscreen .stage{left:50%;top:50%;transform-origin:center center}.preview.clean .stage{cursor:none}body.clean-page{padding:0;overflow:hidden;background:#f9fbfc}body.clean-page main{max-width:none}body.clean-page .preview{width:100vw;height:100vh;aspect-ratio:auto;box-shadow:none}body.clean-page .stage{left:50%;top:50%;transform-origin:center center}body.clean-page .controls,body.clean-page .instructions,body.clean-page .script-panel{display:none}.error{color:#a3423d!important}@media(max-width:650px){body{padding:10px}.control-row{gap:6px}.controls button,.audio{padding:8px 10px}.options{gap:10px!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></symbol>
+<symbol id="i-query" viewBox="0 0 24 24"><path d="M21 11a8 8 0 0 1-8 8H6l-4 3 1-7a8 8 0 0 1-1-4 9 9 0 0 1 19 0Z M7 10h10 M7 14h6"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H4v20h16V8L14 2Z M14 2v6h6 M8 13h8 M8 17h6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><path d="M3 3h18v18H3z M9 3v18 M15 3v18 M3 9h18 M3 15h18"/></symbol>
+<symbol id="i-date" viewBox="0 0 24 24"><path d="M3 5h18v16H3z M3 10h18 M7 2v6 M17 2v6 M7 14h3 M14 14h3"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="m2 5 6-3 8 3 6-3v17l-6 3-8-3-6 3V5Z M8 2v17 M16 5v17"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6l9-4Z m-4 9 3 3 5-6"/></symbol>
+<symbol id="i-route" viewBox="0 0 24 24"><path d="M4 12h8 M12 4v16 M12 4h8 M12 12h8 M12 20h8"/><circle cx="3" cy="12" r="2"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 7c3-4 5 4 8 0s5 4 8 0 4 0 4 0 M2 12c3-4 5 4 8 0s5 4 8 0 4 0 4 0 M2 17c3-4 5 4 8 0s5 4 8 0 4 0 4 0"/></symbol>
+<symbol id="i-change" viewBox="0 0 24 24"><path d="M3 7h18l-4-4 M21 17H3l4 4 M3 7v10 M21 7v10"/></symbol>
+</defs></svg>
+<main>
+<div class="preview" id="preview" aria-label="SatQuery architecture motion graphic">
+<div class="stage" id="stage">
+<div class="glow"></div>
+<div class="brand"><img src="satquery-mark.svg" alt="SatQuery logo">SatQuery<span>AI</span></div>
+<div class="edition">BEHIND THE ANSWER</div>
+
+<section class="scene hero" aria-label="A question becomes a workflow">
+<div class="eyebrow" data-in="0.1">INTELLIGENCE, WITH A PROCESS</div>
+<h1 data-in="0.35">One question.<br><em>The right workflow.</em></h1>
+<p class="deck" data-in="0.75">From satellite observations<br>to evidence you can inspect.</p>
+<div class="question card" data-in="1.1"><svg class="icon"><use href="#i-query"/></svg><span><span id="typed"></span><span class="caret">|</span></span></div>
+<div class="core-art" data-in="0.7"><div class="orbit"></div><div class="orbit inner"></div><div class="core"><img src="satquery-mark.svg" alt=""></div><div class="orbit-node"><svg class="icon"><use href="#i-layers"/></svg>Observations</div><div class="orbit-node"><svg class="icon"><use href="#i-route"/></svg>Analysis</div><div class="orbit-node"><svg class="icon"><use href="#i-shield"/></svg>Evidence</div></div>
+</section>
+
+<section class="scene ingest" aria-label="Read the source data">
+<div class="eyebrow" data-in="0">01 / INGEST</div>
+<h1 data-in="0.15">Start with<br><em>the source.</em></h1>
+<p class="deck" data-in="0.4">Raster previews. Sensor metadata.<br>Original files, kept together.</p>
+<div class="chip" data-in="1.8"><span class="dot"></span>Source identity preserved</div>
+<div class="file-stack" data-in="0.35"><div class="file back"></div><div class="file mid"></div><div class="file front"><div class="file-top"><svg class="icon"><use href="#i-file"/></svg><span>OBSERVATION.tif</span></div><div class="raster-grid" id="pixels"></div><small>Multispectral raster</small><small>Original source + display preview</small></div></div>
+<div class="connector"><i id="ingestPacket"></i></div>
+<div class="metadata card" data-in="1"><h3>Read the observation</h3><div class="meta-row" data-in="1.3"><span>Acquisition</span><b>Date + time</b></div><div class="meta-row" data-in="1.8"><span>Sensor</span><b>Optical / SAR</b></div><div class="meta-row" data-in="2.3"><span>Spatial reference</span><b>CRS + bounds</b></div><div class="meta-row" data-in="2.8"><span>Raster</span><b>Bands + grid</b></div></div>
+</section>
+
+<section class="scene validate" aria-label="Validate the inputs">
+<div class="eyebrow" data-in="0">02 / VALIDATE</div>
+<h1 data-in="0.15">The right inputs.<br><em>Before analysis.</em></h1>
+<p class="deck" data-in="0.4">Checks depend on the task.<br>Every comparison needs context.</p>
+<div class="validation-panel card" data-in="0.6"><div class="panel-head"><h3>Input compatibility</h3><span class="chip">TASK-DEPENDENT CHECKS</span></div>
+<div class="check-row" data-in="1"><svg class="icon"><use href="#i-layers"/></svg><strong>Observation count</strong><small>One image or a pair</small><span class="checkmark" data-in="1.5">✓</span></div>
+<div class="check-row" data-in="1.6"><svg class="icon"><use href="#i-date"/></svg><strong>Acquisition dates</strong><small>Earlier → later</small><span class="checkmark" data-in="2.3">✓</span></div>
+<div class="check-row" data-in="2.3"><svg class="icon"><use href="#i-eye"/></svg><strong>Sensor modalities</strong><small>Optical / radar</small><span class="checkmark" data-in="3.1">✓</span></div>
+<div class="check-row" data-in="3"><svg class="icon"><use href="#i-map"/></svg><strong>CRS &amp; coverage</strong><small>Same geographic area</small><span class="checkmark" data-in="3.9">✓</span></div>
+<div class="check-row" data-in="3.7"><svg class="icon"><use href="#i-grid"/></svg><strong>Raster grid</strong><small>Aligned measurements</small><span class="checkmark" data-in="4.7">✓</span></div>
+</div><div class="scene-label" data-in="5.2">Incompatible inputs → request the missing evidence</div>
+</section>
+
+<section class="scene routing" aria-label="Route the question to an analysis capability">
+<div class="eyebrow" data-in="0">03 / ROUTE</div>
+<h1 data-in="0.15">Let the question<br><em>choose the path.</em></h1>
+<p class="deck" data-in="0.45">Intent and selected observations<br>guide the controller.</p>
+<div class="route-tag" data-in="0.8" id="routeTag">What is visible in this scene?</div>
+<div class="controller" data-in="0.55"><svg class="icon"><use href="#i-route"/></svg><b>Query controller</b></div>
+<svg class="route-lines" viewBox="0 0 235 520" aria-hidden="true"><path d="M0 243H80V20H235 M80 243V154H235 M80 243V286H235 M80 286V420H235"/><path id="activePath" class="live" d="M0 243H80V20H235"/></svg>
+<div class="route-list">
+<article class="route card" data-in="0.8"><div class="glyph"><svg class="icon"><use href="#i-eye"/></svg></div><div><h3>Visual interpretation</h3><p>Open-ended questions · rendered observations</p></div></article>
+<article class="route card" data-in="1"><div class="glyph"><svg class="icon"><use href="#i-wave"/></svg></div><div><h3>Multispectral calculations</h3><p>NDWI · source pixels · water candidates</p></div></article>
+<article class="route card" data-in="1.2"><div class="glyph"><svg class="icon"><use href="#i-change"/></svg></div><div><h3>Temporal comparison</h3><p>Two dates · aligned raster measurements</p></div></article>
+<article class="route card" data-in="1.4"><div class="glyph"><svg class="icon"><use href="#i-layers"/></svg></div><div><h3>Optical + radar reasoning</h3><p>Paired observations · complementary evidence</p></div></article>
+</div>
+</section>
+
+<section class="scene execute" aria-label="An answer with an execution record">
+<div class="eyebrow" data-in="0">04 / EXECUTE</div>
+<h1 data-in="0.15">The answer.<br><em>With a record.</em></h1>
+<p class="deck" data-in="0.4">Each capability returns its result<br>with an inspectable execution record.</p>
+<div class="chip" data-in="2.7"><svg class="icon" style="width:20px;height:20px"><use href="#i-shield"/></svg>Traceable analysis</div>
+<div class="execution card" data-in="0.55"><div class="panel-head"><h3>Execution record</h3><span class="mini">STRUCTURED OUTPUT</span></div><div class="execution-line" data-in="0.9"><span class="num">01</span><span>Selected source observations</span><small>Source IDs</small></div><div class="execution-line" data-in="1.5"><span class="num">02</span><span>Chosen analysis capability</span><small>Tool / model</small></div><div class="execution-line" data-in="2.1"><span class="num">03</span><span>Processing parameters</span><small>Method</small></div><div class="execution-line" data-in="2.7"><span class="num">04</span><span>Returned result</span><small>Output</small></div><div class="receipt" data-in="3.3"><svg class="icon"><use href="#i-file"/></svg>Answer + execution record</div></div>
+</section>
+
+<section class="scene evidence" aria-label="Compose reviewable evidence">
+<div class="eyebrow" data-in="0">05 / COMPOSE</div>
+<h1 data-in="0.15">Keep the evidence<br><em>with the answer.</em></h1>
+<p class="deck" data-in="0.4">Sources, methods and limitations<br>travel with the result.</p>
+<div class="evidence-tags"><div class="evidence-tag card" data-in="0.9"><svg class="icon"><use href="#i-layers"/></svg>Source observations</div><div class="evidence-tag card" data-in="1.8"><svg class="icon"><use href="#i-route"/></svg>Executed parameters</div><div class="evidence-tag card" data-in="2.7"><svg class="icon"><use href="#i-shield"/></svg>Quality &amp; limitations</div></div>
+<div class="report card" data-in="0.6"><div class="report-head"><img src="satquery-mark.svg" alt="">SatQuery AI</div><h3>Evidence report</h3><span class="mini">QUESTION → ANSWER → EVIDENCE</span><div class="report-block" data-in="1.3"><b>Answer</b><div class="line"></div><div class="line"></div><div class="line short"></div></div><div class="report-block" data-in="2.2"><b>Source observations</b><div class="line"></div><div class="line short"></div></div><div class="report-block" data-in="3.1"><b>Method &amp; limitations</b><div class="line"></div><div class="line short"></div></div><div class="report-pills" data-in="3.8"><span>Source-linked</span><span>Inspectable</span><span>Exportable</span></div></div>
+</section>
+
+<section class="scene closing" aria-label="A modular architecture">
+<div class="eyebrow" data-in="0">06 / EXTEND</div>
+<h1 data-in="0.15">Built to connect.<br><em>Designed to evolve.</em></h1>
+<p class="deck" data-in="0.4">A modular analysis layer.<br>One consistent evidence workflow.</p>
+<div class="modular" data-in="1.5">New specialists<br><b>Train → evaluate → integrate</b></div>
+<div class="system"><div class="system-box card" data-in="0.8"><small>01 / SOURCES</small>Observations</div><span class="system-arrow" data-in="1">→</span><div class="system-box card" data-in="1.1"><small>02 / CONTEXT</small>Validation</div><span class="system-arrow" data-in="1.3">→</span><div class="system-box card focus" data-in="1.4"><small>03 / CAPABILITIES</small>Analysis</div><span class="system-arrow" data-in="1.6">→</span><div class="system-box card" data-in="1.7"><small>04 / OUTPUT</small>Evidence</div><span class="system-arrow" data-in="1.9">→</span><div class="system-box card" data-in="2"><small>05 / DELIVERY</small>Report</div></div>
+<div class="scene-label" data-in="2.8">ASK EARTH. GET EVIDENCE.</div>
+</section>
+<div class="credit">ARCHITECTURE EXPLAINER · SCHEMATIC VISUALS</div>
+<div class="subtitle" id="subtitle"></div>
+<div class="footer"><div class="steps" id="steps"></div><div class="track"><i id="progress"></i></div><div class="footer-line"><span>SATQUERY AI / SYSTEM DESIGN</span><span id="sceneNumber">01 / 07</span></div></div>
+<div class="countdown" id="countdown" aria-live="assertive"></div>
+</div>
+</div>
+<div class="controls">
+<div class="control-row"><button class="primary" id="play">Play</button><button id="restart">Restart</button><input id="seek" type="range" min="0" max="64" step="0.01" value="0" aria-label="Animation timeline"><span class="clock" id="clock">0:00 / 1:04</span><button id="record">Record view · 3s</button><button id="fullscreen">Fullscreen</button></div>
+<div class="options"><label>Duration <input id="duration" type="number" min="20" max="300" value="64" aria-label="Duration in seconds"> sec</label><label><input id="captions" type="checkbox">Show narration captions</label><label><input id="loop" type="checkbox">Loop</label><label class="audio">Load Agrani’s voice<input id="audioFile" type="file" accept="audio/*"></label><button id="fitAudio" disabled>Fit to voice</button><button id="clearAudio" disabled>Clear voice</button><span id="audioStatus">Audio stays on this device.</span></div>
+<div class="cuebar" id="cuebar"></div>
+</div>
+<p class="instructions"><b>Recording:</b> click <b>Record view</b> for a clean fullscreen canvas with a 3-second countdown. Record the browser using your screen recorder; trim the countdown in the edit. <b>Space</b> pauses, <b>R</b> restarts, <b>← / →</b> seeks, and <b>Esc</b> exits fullscreen. You can load a voice take to rehearse together or add the audio later in your editor. Adjust duration to her delivery; 64 seconds is a starting point.</p>
+<details class="script-panel"><summary>Agrani’s narration and chapter cues</summary><div id="script"></div></details>
+</main>
+<script>
+'use strict';
+const chapters = [
+ {at:0,end:7,label:'Question',text:'Behind the interface, SatQuery AI uses a query-driven controller rather than sending every request through one generic path.'},
+ {at:7,end:15,label:'Ingest',text:'First, the ingestion layer reads raster previews and metadata while preserving the original files.'},
+ {at:15,end:24,label:'Validate',text:'The validator checks the number of observations, acquisition dates, sensor modalities, coordinate system, and geographic coverage.'},
+ {at:24,end:40,label:'Route',text:'The controller then routes the question to the appropriate capability: visual interpretation for open-ended questions, multispectral calculations such as NDWI for spatial water evidence, aligned raster comparison for temporal change, or paired optical-radar reasoning for complementary analysis.'},
+ {at:40,end:47,label:'Execute',text:'Each capability returns both an answer and an execution record.'},
+ {at:47,end:56,label:'Compose',text:'The evidence composer links that result back to its source observations, parameters, and limitations, which is what makes the final response reviewable.'},
+ {at:56,end:64,label:'Extend',text:'The architecture is modular, so additional remote-sensing specialists can be trained, evaluated, and added without redesigning the user experience.'}
+];
+const $ = id => document.getElementById(id);
+const scenes = [...document.querySelectorAll('.scene')];
+const reveals = scenes.map(s => [...s.querySelectorAll('[data-in]')]);
+const preview=$('preview'),stage=$('stage'),audio=new Audio();
+let duration=64,time=0,playing=false,lastFrame=0,audioURL='',raf=0,countdownTimer=0,counting=false;
+const params=new URLSearchParams(location.search);
+const cleanPage=params.get('clean')==='1';
+if(cleanPage) document.body.classList.add('clean-page');
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const ease=v=>1-Math.pow(1-clamp(v),3);
+const stamp=v=>`${Math.floor(v/60)}:${String(Math.floor(v%60)).padStart(2,'0')}`;
+chapters.forEach((c,i)=>{
+ const s=document.createElement('div');s.className='step';s.innerHTML=`<b>${String(i+1).padStart(2,'0')}</b>${c.label}`;$('steps').append(s);
+ const button=document.createElement('button');button.textContent=`${stamp(c.at)} ${c.label}`;button.onclick=()=>seek(c.at/64*duration);$('cuebar').append(button);
+ const p=document.createElement('p');p.innerHTML=`<span class="cue-time">${stamp(c.at)} – ${stamp(c.end)} / ${c.label}</span><br>${c.text}`;$('script').append(p);
+});
+const colors=['#b3d8c6','#89b5ac','#d2dfcb','#417b81','#183e56','#245971','#e5e9d7'];
+for(let i=0;i<28;i++){const pixel=document.createElement('i');pixel.style.background=colors[(i*7+Math.floor(i/7)*3+i%5)%colors.length];$('pixels').append(pixel)}
+function resize(){const full=!!document.fullscreenElement||cleanPage;const scale=Math.min(preview.clientWidth/1920,preview.clientHeight/1080);stage.style.transform=full?`translate(-50%,-50%) scale(${scale})`:`scale(${scale})`}
+new ResizeObserver(resize).observe(preview);document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&!cleanPage)preview.classList.remove('clean');resize()});
+function draw(){
+ const t=(!playing&&time===0)?4.9:time/duration*64;
+ const index=Math.max(0,chapters.findIndex(c=>t<c.end));
+ const active=time>=duration?6:index;
+ scenes.forEach((s,i)=>{
+  const c=chapters[i],local=t-c.at;
+  const visible=i===active;
+  s.style.visibility=visible?'visible':'hidden';s.setAttribute('aria-hidden',String(!visible));
+  const fadeIn=i===0?1:clamp(local/.45);const fadeOut=i===6?1:clamp((c.end-t)/.35);
+  s.style.opacity=visible?Math.min(fadeIn,fadeOut):0;
+  if(visible)for(const node of reveals[i]){const amount=ease((local-Number(node.dataset.in))/.9);node.style.opacity=amount;node.style.transform=`translateY(${(1-amount)*24}px)`}
+ });
+ const question='What changed between these observations?';$('typed').textContent=question.slice(0,Math.floor(clamp((t-1.5)/3.1)*question.length));document.querySelector('.caret').style.opacity=Math.floor(t*2)%2?'0':'1';
+ $('ingestPacket').style.transform=`translateX(${((Math.max(0,t-8)*.42)%1)*98}px)`;
+ const routeTime=t-24;const routeIndex=clamp(Math.floor((routeTime-1.5)/3.35),0,3);
+ document.querySelectorAll('.route').forEach((r,i)=>r.classList.toggle('active',i===routeIndex));
+ const ends=[20,154,286,420];$('activePath').setAttribute('d',`M0 243H80V${ends[routeIndex]}H235`);$('activePath').style.strokeDashoffset=String(-t*24);
+ $('routeTag').textContent=['What is visible in this scene?','Where are the water-index candidates?','How did water extent change?','What does each sensor contribute?'][routeIndex];
+ document.querySelectorAll('.step').forEach((s,i)=>{s.classList.toggle('active',i===active);s.classList.toggle('done',i<active)});
+ [...$('cuebar').children].forEach((b,i)=>b.classList.toggle('selected',i===active));
+ $('progress').style.width=`${time/duration*100}%`;$('sceneNumber').textContent=`${String(active+1).padStart(2,'0')} / 07`;$('subtitle').textContent=chapters[active].text;
+ $('seek').value=String(time);$('clock').textContent=`${stamp(time)} / ${stamp(duration)}`;$('play').textContent=playing?'Pause':'Play';
+}
+function tick(now){if(!playing)return;const delta=lastFrame?(now-lastFrame)/1000:0;lastFrame=now;time=Math.min(duration,time+delta);if(time>=duration){if($('loop').checked){time=0;if(audioURL){audio.currentTime=0;void audio.play().catch(audioError)}}else{playing=false;audio.pause()}}draw();if(playing)raf=requestAnimationFrame(tick)}
+function audioError(){ $('audioStatus').textContent='Audio playback could not start. Check the file or press Play again.';$('audioStatus').classList.add('error') }
+function setPlaying(value){if(counting)return;cancelAnimationFrame(raf);playing=value;lastFrame=0;if(playing){if(time>=duration){time=0;if(audioURL)audio.currentTime=0}if(audioURL){audio.currentTime=Math.min(time,audio.duration||time);void audio.play().catch(audioError)}raf=requestAnimationFrame(tick)}else audio.pause();draw()}
+function seek(value){time=clamp(value,0,duration);if(audioURL&&Number.isFinite(audio.duration))audio.currentTime=Math.min(time,audio.duration);lastFrame=0;draw()}
+function changeDuration(value){const before=duration;duration=clamp(Number(value)||64,20,300);time=time/before*duration;$('duration').value=String(duration);$('seek').max=String(duration);[...$('cuebar').children].forEach((b,i)=>b.textContent=`${stamp(chapters[i].at/64*duration)} ${chapters[i].label}`);seek(time)}
+$('play').onclick=()=>setPlaying(!playing);$('restart').onclick=()=>{seek(0);setPlaying(true)};$('seek').oninput=e=>seek(Number(e.target.value));$('duration').onchange=e=>changeDuration(e.target.value);$('captions').onchange=e=>stage.classList.toggle('show-captions',e.target.checked);
+$('fullscreen').onclick=async()=>{try{await preview.requestFullscreen()}catch{$('audioStatus').textContent='Use your browser fullscreen control, or open ?clean=1.'}};
+function clearCountdown(){clearInterval(countdownTimer);counting=false;$('countdown').classList.remove('on')}
+$('record').onclick=async()=>{setPlaying(false);clearCountdown();seek(0);preview.classList.add('clean');try{await preview.requestFullscreen()}catch{};let count=3;counting=true;$('countdown').textContent=String(count);$('countdown').classList.add('on');countdownTimer=setInterval(()=>{count--;if(count===0){clearCountdown();setPlaying(true)}else $('countdown').textContent=String(count)},1000)};
+$('audioFile').onchange=e=>{const file=e.target.files[0];if(!file)return;setPlaying(false);if(audioURL)URL.revokeObjectURL(audioURL);audioURL=URL.createObjectURL(file);audio.src=audioURL;$('audioStatus').textContent='Reading voice take…';$('audioStatus').classList.remove('error');audio.onloadedmetadata=()=>{if(!Number.isFinite(audio.duration)){audioError();return}$('audioStatus').textContent=`${file.name} · ${stamp(audio.duration)}`;$('fitAudio').disabled=false;$('clearAudio').disabled=false};audio.onerror=audioError};
+$('fitAudio').onclick=()=>{if(Number.isFinite(audio.duration)){setPlaying(false);changeDuration(Math.round(audio.duration*10)/10);seek(0)}};
+$('clearAudio').onclick=()=>{setPlaying(false);audio.removeAttribute('src');audio.load();if(audioURL)URL.revokeObjectURL(audioURL);audioURL='';$('audioFile').value='';$('audioStatus').textContent='Audio stays on this device.';$('audioStatus').classList.remove('error');$('fitAudio').disabled=true;$('clearAudio').disabled=true};
+document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.code==='Space'){e.preventDefault();setPlaying(!playing)}if(e.key.toLowerCase()==='r'){seek(0);setPlaying(true)}if(e.key==='ArrowRight'){e.preventDefault();seek(time+2)}if(e.key==='ArrowLeft'){e.preventDefault();seek(time-2)}if(e.key==='Escape'){clearCountdown();preview.classList.remove('clean')}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)setPlaying(false)});
+if(params.has('duration'))changeDuration(params.get('duration'));
+if(params.has('t'))seek(Number(params.get('t'))||0);
+resize();draw();
+if(params.get('autoplay')==='1')setPlaying(true);
+</script>
+</body>
+</html>
