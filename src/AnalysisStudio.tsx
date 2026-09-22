@@ -211,7 +211,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
           result = {answer:`${response.summary}\nBefore: ${response.beforeWaterHa} ${response.areaUnit}\nAfter: ${response.afterWaterHa} ${response.areaUnit}\nNew water-index candidates: ${response.expandedAreaHa} ${response.areaUnit}`, task:'temporal-water',mode:response.mode,maskPng:response.maskPng,trace:response.trace,limitations:['Common valid pixels only. Cloud/shadow masking is not applied. Confirm reflectance scale and band mapping.']}
           setActive(chosen[1].id)
         } else {
-          setBusy('Nova is examining the selected observations')
+          setBusy('SatQuery AI is examining the selected observations')
           const session = await supabase?.auth.getSession()
           const token = session?.data.session?.access_token
           result = await request<Answer>('/api/studio/answer', { method:'POST', headers:{'Content-Type':'application/json',...(token ? { Authorization:`Bearer ${token}` } : {})}, body:JSON.stringify(body) })
