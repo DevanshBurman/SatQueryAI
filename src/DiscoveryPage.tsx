@@ -83,14 +83,7 @@ export default function DiscoveryPage({ proceed, back }: { proceed: (scenes: Cat
     setActive(scene); setVisual(false)
     if (scene.bbox) map.current?.fitBounds([[scene.bbox[0],scene.bbox[1]],[scene.bbox[2],scene.bbox[3]]], { padding: 100, maxZoom: 12, duration: 400 })
   }
-  const toggleSelected = (scene: CatalogScene) => setSelected(items => {
-    if (items.some(item => item.id === scene.id)) return items.filter(item => item.id !== scene.id)
-    if (items.length >= 2) {
-      setNotice('Choose up to two observations. SatQuery can compare two dates or combine one optical and one SAR scene.')
-      return items
-    }
-    return [...items, scene]
-  })
+  const toggleSelected = (scene: CatalogScene) => setSelected(items => items.some(item => item.id === scene.id) ? items.filter(item => item.id !== scene.id) : [...items, scene])
   const loadExamples = () => {
     request.current?.abort()
     setScenes(EXAMPLES); setStatus('example'); setNotice('Example catalogue · footprints and metadata only, not downloaded satellite pixels.'); setFilters(false)
