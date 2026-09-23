@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SatQuery • Agrani recording master V2</title>
+<link rel="stylesheet" href="agrani-motion-v2.css">
+<style>
+/* Keep transport controls within reach on an ordinary laptop viewport. */
+body:not(.clean) #preview:not(:fullscreen){width:min(100%, calc((100vh - 190px) * 16 / 9));margin-inline:auto}
+</style>
+<main>
+<div id="preview"><div id="stage">
+<div id="scene" aria-live="off"></div>
+<div id="caption" hidden></div><div id="countdown" hidden></div>
+</div></div>
+<section class="controls" aria-label="Recording controls">
+<strong>Agrani — recording controls</strong><span>Use the accompanying AGRANI_FINAL_SCRIPT.md. Earlier scripts are superseded.</span>
+<div class="transport"><button id="play">Play</button><button id="restart">Restart</button><input id="seek" aria-label="Timeline" type="range" min="0" max="100" step="0.05" value="0"><output id="clock"></output><button id="record">Record view · 3s</button><button id="full">Fullscreen</button></div>
+<div class="options"><label>Duration <input id="duration" type="number" min="30" max="300" value="100"> seconds</label><label><input id="captions" type="checkbox"> Narration captions</label><label>Voice take <input id="voice" type="file" accept="audio/*"></label><button id="fit" disabled>Fit to voice</button><button id="clear">Clear voice</button><span id="audioStatus">Audio stays on this device.</span></div>
+<nav id="cues" aria-label="Chapters"></nav>
+<p>Space: play/pause · R: restart · arrows: seek · Esc: leave recording view. Capture at 1920 × 1080. Captions are off by default so they do not compete with the voice.</p>
+<details><summary>Current narration — read only this version</summary><div id="script"></div></details>
+</section></main>
+<script src="agrani-motion-v2.js"></script>
+</html>

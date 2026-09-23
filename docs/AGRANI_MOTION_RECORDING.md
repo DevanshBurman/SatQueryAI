@@ -1,5 +1,7 @@
 # Agrani's motion graphic
 
+> SUPERSEDED: Do not record the narration below. Use `AGRANI_FINAL_SCRIPT.md` and `AGRANI_FINAL_RECORDING.md`. This document remains only as an archived reference.
+
 Open `public/agrani-motion.html` directly in Chrome or serve the project and open `/agrani-motion.html`. Keep `satquery-mark.svg` beside the HTML if sharing the files separately. The page has no external font, library, or API dependency.
 
 The editable HTML/CSS/SVG sequence is composed at 1920 x 1080. It uses the existing SatQuery mark, white, navy, and teal. All raster tiles, checkmarks and reports in this sequence are schematic architecture illustrations, not recorded analysis outputs.

@@ -4,9 +4,10 @@ import { analyzeWaterChange, type CatalogScene } from './api'
 import { supabase } from './supabase'
 import './analysis-studio.css'
 import StudioWelcome from './StudioWelcome'
+import { createEvidenceReport } from './evidenceReport'
 
 type Evidence = { id: string; label: string; date: string; modality: 'optical' | 'sar'; image: string; source: string; crs?: string | null; bounds?: number[]; file?: File; processing?: string }
-type Answer = { answer: string; task: string; mode: string; trace: unknown[]; limitations?: string[]; maskPng?: string; maskSourceId?: string; query?: string; elapsedSeconds?: number; sources?: unknown[] }
+type Answer = { answer: string; task: string; mode: string; trace: unknown[]; limitations?: string[]; maskPng?: string; maskSourceId?: string; query?: string; elapsedSeconds?: number; sources?: unknown[]; evidenceImages?: {label:string;date?:string;image:string}[] }
 type Plan = { task: string; steps: { tool: string; detail: string }[] }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -25,11 +26,12 @@ function download(name: string, value: string, type = 'application/json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 function metadata(item: Evidence) { const { file: _file, ...rest } = item; return rest }
-function exportReport(answer: Answer) {
-  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
-  download('satquery-evidence-report.html', `<!doctype html><html><head><meta charset="utf-8"><title>SatQuery evidence report</title><style>body{font:16px/1.7 Arial;color:#17394a;max-width:850px;margin:50px auto;padding:30px}h1{font-size:32px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 monospace;background:#f0f6f7;padding:20px}section{white-space:pre-wrap}small{color:#61808b}@media print{body{margin:0}}</style></head><body><small>SATQUERY AI · SOURCE-LINKED EVIDENCE REPORT</small><h1>${escape(answer.query || 'Analysis')}</h1><p>${escape(answer.mode)}</p><section>${escape(answer.answer)}</section><h2>Limitations</h2><section>${escape((answer.limitations || []).join('\n'))}</section><h2>Source observations</h2><pre>${escape(JSON.stringify(answer.sources,null,2))}</pre><h2>Execution record</h2><pre>${escape(JSON.stringify(answer.trace,null,2))}</pre><small>Generated ${new Date().toISOString()} · Save as PDF using your browser's Print command.</small></body></html>`, 'text/html')
-}
-const prompts = ['Describe the land-cover and major objects visible in this image.', 'Highlight the water body in this image.', 'What changed between these two dates?', 'Use the optical and SAR images together to describe water and built-up regions.']
+const prompts = [
+  {mode:'single' as const, tag:'1 optical image', text:'Describe the land cover and major visible features in this image.'},
+  {mode:'single' as const, tag:'1 multispectral TIFF', text:'Highlight the water body in this image.'},
+  {mode:'temporal' as const, tag:'2 optical dates', text:'What changed in water extent between these two dates?'},
+  {mode:'fusion' as const, tag:'1 optical + 1 SAR', text:'Use the optical and SAR images together to describe water and built-up regions.'},
+]
 
 function ReadableAnswer({ text }: { text: string }) {
   return <div className="studio-answer-copy">{text.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => {
@@ -218,7 +220,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
         }
       }
       result.elapsedSeconds = Math.round((performance.now()-started)/100)/10
-      result.query = question; result.sources = chosen.map(item => ({...metadata(item), image:undefined})); result.maskSourceId = result.task === 'temporal-water' ? chosen[1]?.id : chosen[0]?.id
+      result.query = question; result.sources = chosen.map(item => ({...metadata(item), image:undefined})); result.evidenceImages = chosen.map(item => ({label:item.label,date:item.date,image:rendered?.id === item.id ? rendered.image : item.image})); result.maskSourceId = result.task === 'temporal-water' ? chosen[1]?.id : chosen[0]?.id
       if (rendered && chosen.some(item => item.id === rendered.id) && result.mode === 'Bedrock vision preview') result.trace.unshift({tool:'spectral-render',source:rendered.id,view:rendered.note,status:'complete'})
       setAnswers(previous => [...previous, result]); setOverlay(true); setQuery('')
       void saveQuery(question, result.task).catch(() => setError('Analysis completed, but query history could not be saved.'))
@@ -256,13 +258,13 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       </main>
       {reading && <button className="studio-reading-backdrop" aria-label="Return to imagery" onClick={() => setReading(false)}/>}
       <aside className={`studio-assistant ${reading ? 'studio-reading' : ''}`} aria-label="SatQuery conversation"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><button className="studio-reading-toggle" onClick={() => setReading(v => !v)} aria-expanded={reading}>{reading ? 'Return to imagery' : 'Expand conversation'}{reading ? <X size={16}/> : <ArrowRight size={16}/>}</button></div>
-        <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map((prompt,index) => <button key={prompt} onClick={() => {setQuery(prompt);if(index < 2 && assets.length) {setSelected([active || assets[0].id]);setAnswers([])}}}>{prompt}<ArrowRight size={14}/></button>)}</div></div>}
-          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Evidence quality</b>Review source dates, sensor compatibility and the limitations below. Accuracy requires reference labels; no per-answer percentage is inferred.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => exportReport(answer)}><Download size={14}/>Download evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
+        <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map(prompt => <button key={prompt.text} onClick={() => {setQuery(prompt.text);preset(prompt.mode)}}><span><small>{prompt.tag}</small>{prompt.text}</span><ArrowRight size={14}/></button>)}</div></div>}
+          {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Evidence quality</b>Review source dates, sensor compatibility and the limitations below. Accuracy requires reference labels; no per-answer percentage is inferred.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => createEvidenceReport(answer).save('satquery-evidence-report.pdf')}><Download size={14}/>Download PDF evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
           {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}<span>{elapsed}s elapsed</span></div>}
           {error && <div className="studio-error" role="alert">{error}</div>}
         </div>
         {plan && <details className="studio-plan"><summary><ShieldCheck size={15}/>{plan.task}<ChevronDown size={14}/></summary><ol>{plan.steps.map(step => <li key={step.tool}><b>{step.tool}</b><span>{step.detail}</span></li>)}</ol></details>}
-        <form className="studio-composer" onSubmit={e => {e.preventDefault();void run()}}><label htmlFor="studio-query">Ask about your selected images</label><textarea id="studio-query" value={query} onChange={e => setQuery(e.target.value)} placeholder="What changed between these observations?" maxLength={4000} disabled={!!busy}/><div><span>{chosen.length} observation{chosen.length === 1 ? '' : 's'} attached</span><button disabled={!!busy || !query.trim()} type="submit">{busy ? <LoaderCircle size={16}/> : <ArrowRight size={18}/>}Analyse</button></div></form>
+        <form className="studio-composer" onSubmit={e => {e.preventDefault();void run()}}><label htmlFor="studio-query">Ask about your selected images</label>{chosen.length > 0 && <div className="studio-attached">{chosen.map((item,index) => <span key={item.id}><b>{index + 1}</b>{item.label}<small>{item.modality.toUpperCase()}{item.date ? ` · ${item.date}` : ''}</small></span>)}</div>}<textarea id="studio-query" value={query} onChange={e => setQuery(e.target.value)} placeholder={chosen.length === 2 ? 'Ask what changed, or how these sensors complement each other…' : 'Ask what is visible, or request a water mask…'} maxLength={4000} disabled={!!busy}/><div><span>{chosen.length ? `${chosen.length} source observation${chosen.length === 1 ? '' : 's'} attached` : 'Choose an input before analysing'}</span><button disabled={!!busy || !query.trim()} type="submit">{busy ? <LoaderCircle size={16}/> : <ArrowRight size={18}/>}Analyse</button></div></form>
       </aside>
     </div>
     {tour && <StudioWelcome architecture close={() => setTour(false)}/>}
