@@ -1,6 +1,8 @@
 # Agrani — current recording script
 
-**Use only this script. All earlier Agrani scripts are superseded.**
+> For the submission video, use the shorter Agrani section in [SUBMISSION_VIDEO_MASTER.md](SUBMISSION_VIDEO_MASTER.md). The text below remains the matching narration for the separate 135-second architecture animation only.
+
+**Long architecture-animation narration (supporting material).**
 
 ## Message to send
 

@@ -1,5 +1,7 @@
 # SatQuery AI - final submission video playbook
 
+> Superseded for recording by [SUBMISSION_VIDEO_MASTER.md](SUBMISSION_VIDEO_MASTER.md). Use that document for Dimple, Agrani, and the editor. This older plan is retained for reference.
+
 This is the record-ready plan for the SIH26167 prototype video. It is designed to show one coherent investigation, not a catalogue of screens.
 
 ## Core story
@@ -208,4 +210,3 @@ Use no more than six callouts in the entire video:
 - TEOChat: https://github.com/ermongroup/TEOChat
 - BigEarthNet.txt: https://txt.bigearth.net/
 - A useful current industry demo pattern - natural-language Earth observation plus change detection: https://element84.com/machine-learning/queryable-earth-demo-update-now-with-change-detection/
-
