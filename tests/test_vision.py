@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from backend.main import app
-from backend.vision import Observation, VisionRequest, image_block, invoke, validate_inputs
+from backend.vision import Observation, VisionRequest, image_block, interpretation_limitations, invoke, validate_inputs
 
 
 def observation(modality="optical"):
@@ -72,3 +72,15 @@ def test_empty_provider_response(monkeypatch):
     with pytest.raises(HTTPException) as error:
         invoke(VisionRequest(query="Describe", task="single-image", observations=[observation()]), client)
     assert error.value.status_code == 502
+
+
+def test_limitations_match_selected_workflow():
+    single = interpretation_limitations(VisionRequest(query="Describe", task="single-image", observations=[observation()]))
+    temporal = interpretation_limitations(VisionRequest(query="Compare", task="temporal", observations=[observation(), observation()]))
+    paired = interpretation_limitations(VisionRequest(query="Use both", task="cross-modal", observations=[observation(), observation("sar")]))
+    radar = interpretation_limitations(VisionRequest(query="Describe", task="single-image", observations=[observation("sar")]))
+    assert any("mixed pixels" in item for item in single)
+    assert any("Season" in item for item in temporal)
+    assert any("backscatter" in item for item in paired)
+    assert any("Speckle" in item for item in radar)
+    assert all("fine-tuned" not in item for group in (single, temporal, paired, radar) for item in group)

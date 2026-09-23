@@ -70,6 +70,33 @@ def validate_inputs(request: VisionRequest) -> None:
         raise HTTPException(422, "Temporal comparison requires matching modalities; order earlier then later")
 
 
+def interpretation_limitations(request: VisionRequest) -> list[str]:
+    """Describe what this visual interpretation can and cannot establish."""
+    if request.task == "cross-modal":
+        return [
+            "Optical colour and radar backscatter represent different physical properties; similar-looking regions need not be the same land-cover class.",
+            "Radar speckle, viewing geometry and smooth non-water surfaces can affect interpretation. This response is not a validated pixel-level fusion map.",
+            "The two rendered views alone do not independently verify acquisition-time or pixel-level alignment.",
+        ]
+    if request.task == "temporal":
+        return [
+            "Season, illumination, cloud and shadow differences can resemble land-cover change across dates.",
+            "This is a visual comparison of rendered crops, not a measured change area or a validated change map.",
+            "The model endpoint does not independently verify pixel-level co-registration.",
+        ]
+    if request.observations[0].modality == "sar":
+        return [
+            "Radar brightness reflects backscatter rather than visible colour; dark water-like returns can also come from other smooth surfaces or shadow.",
+            "Speckle and native sensor resolution limit the certainty of small-feature interpretation.",
+            "No area or class boundary is measured from this rendered view.",
+        ]
+    return [
+        "This description uses a display-rendered crop; small or mixed pixels may not resolve individual objects.",
+        "Cloud, haze and shadow can conceal features; a scene-level cloud figure, when supplied, is not a mask for this crop.",
+        "The response describes visible evidence; it does not measure class area or validate boundaries against reference labels.",
+    ]
+
+
 def invoke(request: VisionRequest, client) -> dict:
     validate_inputs(request)
     content = []
@@ -86,7 +113,7 @@ def invoke(request: VisionRequest, client) -> dict:
     if not answer.strip():
         raise HTTPException(502, "The vision provider returned no answer")
     return {"answer": answer, "task": request.task, "mode": "Bedrock vision preview",
-            "limitations": ["Not a remote-sensing fine-tuned specialist", "Rendered images only; no quantitative raster analysis or generated mask", "Geographic alignment not verified by this endpoint"],
+            "limitations": interpretation_limitations(request),
             "trace": [{"tool": "bedrock.converse", "model": os.environ["BEDROCK_MODEL_ID"], "parameters": {"maxTokens": 1000, "temperature": 0.1}, "observations": len(request.observations), "status": "complete"}],
             "usage": response.get("usage", {})}
 

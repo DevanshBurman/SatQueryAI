@@ -4,10 +4,10 @@ import { analyzeWaterChange, type CatalogScene } from './api'
 import { supabase } from './supabase'
 import './analysis-studio.css'
 import StudioWelcome from './StudioWelcome'
-import { createEvidenceReport } from './evidenceReport'
+import { createEvidenceReport, type Report } from './evidenceReport'
 
 type Evidence = { id: string; label: string; date: string; modality: 'optical' | 'sar'; image: string; source: string; crs?: string | null; bounds?: number[]; file?: File; processing?: string }
-type Answer = { answer: string; task: string; mode: string; trace: unknown[]; limitations?: string[]; maskPng?: string; maskSourceId?: string; query?: string; elapsedSeconds?: number; sources?: unknown[]; evidenceImages?: {label:string;date?:string;image:string}[] }
+type Answer = Report & { maskSourceId?: string }
 type Plan = { task: string; steps: { tool: string; detail: string }[] }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -26,6 +26,21 @@ function download(name: string, value: string, type = 'application/json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 function metadata(item: Evidence) { const { file: _file, ...rest } = item; return rest }
+const preparedSourceLimitations: Record<string, string> = {
+  'lake-before': 'May shoreline crop: 10 m mixed shoreline pixels and unmasked cloud or shadow can shift the apparent water edge; scene cloud cover is not a crop cloud mask.',
+  'lake-after': 'November shoreline crop: 10 m mixed pixels and no crop cloud mask; compare it with the matching shoreline footprint, not a wider landscape crop.',
+  'lake-sar': 'May Sentinel-1 RTC crop: VV/VH backscatter was resampled to the optical 10 m grid. Resampling does not improve native radar detail or independently prove co-registration.',
+  'wide-before': 'May landscape crop: this wider 512 x 512 view has no cloud mask and a different footprint from the shoreline pair; do not compare them pixel by pixel.',
+  'wide-after': 'November landscape crop: this wider 512 x 512 view has no cloud mask and a different footprint from the shoreline pair; do not compare them pixel by pixel.',
+}
+function sourceLimitations(item: Evidence): string[] {
+  const prepared = preparedSourceLimitations[item.id]
+  if (prepared) return [`${item.label} (${item.date}): ${prepared}`]
+  if (/\.(png|jpe?g)$/i.test(item.file?.name || '')) return [`${item.label}: the uploaded image has no verified georeferencing or source spectral bands.`]
+  return item.modality === 'sar'
+    ? [`${item.label}: confirm radar calibration, acquisition geometry and alignment before drawing geographic conclusions.`]
+    : [`${item.label}: confirm band mapping, reflectance scaling and cloud/shadow masking before treating visual patterns as measured classes.`]
+}
 const prompts = [
   {mode:'single' as const, tag:'1 optical image', text:'Describe the land cover and major visible features in this image.'},
   {mode:'single' as const, tag:'1 multispectral TIFF', text:'Highlight the water body in this image.'},
@@ -220,6 +235,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
         }
       }
       result.elapsedSeconds = Math.round((performance.now()-started)/100)/10
+      result.limitations = [...(result.limitations || []), ...chosen.flatMap(sourceLimitations)]
       result.query = question; result.sources = chosen.map(item => ({...metadata(item), image:undefined})); result.evidenceImages = chosen.map(item => ({label:item.label,date:item.date,image:rendered?.id === item.id ? rendered.image : item.image})); result.maskSourceId = result.task === 'temporal-water' ? chosen[1]?.id : chosen[0]?.id
       if (rendered && chosen.some(item => item.id === rendered.id) && result.mode === 'Bedrock vision preview') result.trace.unshift({tool:'spectral-render',source:rendered.id,view:rendered.note,status:'complete'})
       setAnswers(previous => [...previous, result]); setOverlay(true); setQuery('')
