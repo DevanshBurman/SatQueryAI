@@ -3,10 +3,11 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 import pytest
+from botocore.exceptions import ClientError, NoCredentialsError
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from backend.main import app, _analyze_paths
-from backend.studio import Question, route
+from backend.studio import Question, bedrock_failure_detail, route
 
 def observation(modality='optical', date='2021-05-06'):
     return {'label':'Test scene','modality':modality,'date':date,'image':'data:image/png;base64,eA==','crs':'EPSG:32643','bounds':[0,0,2560,2560]}
@@ -33,6 +34,24 @@ def test_cloud_requires_authenticated_team(monkeypatch):
     monkeypatch.delenv('SATQUERY_LOCAL_DEMO',raising=False)
     response=TestClient(app).post('/api/studio/answer',json={'query':'Describe', 'observations':[observation()]})
     assert response.status_code == 401
+
+def test_bedrock_failure_identifies_missing_credentials_without_secrets():
+    detail = bedrock_failure_detail(NoCredentialsError())
+    assert 'credentials are missing' in detail
+    assert 'Vercel Production' in detail
+
+def test_bedrock_failure_reports_safe_aws_code_only():
+    error = ClientError({'Error': {'Code': 'AccessDeniedException', 'Message': 'secret account detail'}}, 'Converse')
+    detail = bedrock_failure_detail(error)
+    assert 'AccessDeniedException' in detail
+    assert 'IAM permissions' in detail
+    assert 'secret account detail' not in detail
+
+def test_bedrock_failure_hides_unknown_provider_detail():
+    error = ClientError({'Error': {'Code': 'UnknownCode', 'Message': 'secret account detail'}}, 'Converse')
+    detail = bedrock_failure_detail(error)
+    assert 'secret account detail' not in detail
+    assert 'UnknownCode' not in detail
 
 def test_invalid_bands_rejected():
     root=Path('backend/samples')

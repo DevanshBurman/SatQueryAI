@@ -1,5 +1,6 @@
 """Query-driven recording workspace. Cloud credentials never cross the API boundary."""
 import json
+import logging
 import os
 import time
 from datetime import date
@@ -8,11 +9,13 @@ from typing import Literal
 
 import httpx
 import numpy as np
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError, PartialCredentialsError
 from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field, field_validator
 from backend.vision import Observation, VisionRequest, invoke, image_block
 
 router = APIRouter(prefix='/api/studio', tags=['Analysis workspace'])
+logger = logging.getLogger(__name__)
 SAMPLES = Path(__file__).parent / 'samples'
 # These are the WGS84 footprints of the bundled Upper Lake GeoTIFF crops.
 # Keeping them alongside the manifest avoids requiring rasterio in the Vercel
@@ -80,7 +83,32 @@ def plan(question: Question) -> dict:
 def status():
     return {'configured': bool(os.getenv('AWS_REGION') and os.getenv('BEDROCK_MODEL_ID')),
             'provider': 'Amazon Bedrock', 'model': os.getenv('BEDROCK_MODEL_ID', ''),
+            'credentialsVerified': False,
             'local': os.getenv('SATQUERY_LOCAL_DEMO') == 'true' and not os.getenv('VERCEL')}
+
+def bedrock_failure_detail(exc: Exception) -> str:
+    """Return an actionable public error without exposing provider messages or account data."""
+    if isinstance(exc, (NoCredentialsError, PartialCredentialsError)):
+        return 'Bedrock credentials are missing on the server. Configure server-side AWS credentials in Vercel Production and redeploy.'
+    if isinstance(exc, ClientError):
+        code = exc.response.get('Error', {}).get('Code', '')
+        hints = {
+            'AccessDeniedException': 'Bedrock denied model invocation. Check IAM permissions, model access and any inference-profile destination regions.',
+            'UnrecognizedClientException': 'AWS rejected the server credentials. Check the access key, secret key and session token.',
+            'InvalidClientTokenId': 'AWS rejected the server access key or session token.',
+            'ExpiredTokenException': 'The server AWS session token expired. Refresh all temporary credentials and redeploy.',
+            'SignatureDoesNotMatch': 'AWS could not validate the request signature. Check the server access key and secret key.',
+            'ValidationException': 'Bedrock rejected the request. Check the model ID, region, inference-profile requirements and image limits.',
+            'ResourceNotFoundException': 'The configured Bedrock model or inference profile was not found in this region.',
+            'ThrottlingException': 'Bedrock is throttling requests. Check quota and retry later.',
+            'ServiceUnavailableException': 'Bedrock is temporarily unavailable. Retry later.',
+            'ModelTimeoutException': 'The Bedrock model timed out. Retry with a smaller request.',
+        }
+        if code in hints:
+            return f'{code}: {hints[code]} No substitute answer was generated.'
+    if isinstance(exc, BotoCoreError):
+        return 'The server could not connect to Bedrock or load AWS credentials. Check server configuration and function logs.'
+    return 'The model call failed. Check the server function logs; no substitute answer was generated.'
 
 @router.post('/plan')
 def get_plan(question: Question):
@@ -127,7 +155,10 @@ def answer(question: Question, request: Request, authorization: str | None = Hea
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(502, 'The model call failed. Check backend credentials, model access and region; no substitute answer was generated.') from exc
+        # Provider exception messages may contain account identifiers. Log only
+        # the exception class; known AWS error codes are safely mapped above.
+        logger.warning('Bedrock invocation failed (%s)', type(exc).__name__)
+        raise HTTPException(502, bedrock_failure_detail(exc)) from exc
     return {**result, 'query': question.query, 'elapsedSeconds': round(time.monotonic()-start, 2),
             'sources': [o.model_dump(exclude={'image'}) for o in question.observations], 'plan': workflow}
 
