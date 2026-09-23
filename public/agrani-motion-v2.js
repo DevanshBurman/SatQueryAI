@@ -2,69 +2,82 @@
 const chapters=[
   {
     "at": 0,
-    "end": 9,
+    "end": 10,
     "label": "Query + image",
     "text": "How does a question become an answer? Our architecture brings the user's natural-language request and satellite imagery into one evidence-driven workflow."
   },
   {
-    "at": 9,
-    "end": 22,
+    "at": 10,
+    "end": 27,
     "label": "Ingestion + validation",
     "text": "The ingestion layer reads the GeoTIFF's numerical bands and geospatial metadata, preserving the original data. Validation checks sensor information, dates and usable coverage. Paired analysis additionally requires spatial compatibility; a shared coordinate system alone is not enough."
   },
   {
-    "at": 22,
-    "end": 32,
+    "at": 27,
+    "end": 40,
     "label": "Query understanding",
     "text": "Query understanding identifies the requested task and required evidence. A scene-description question needs one observation. Change analysis needs two dates; cross-modal analysis needs a compatible optical and radar pair."
   },
   {
-    "at": 32,
-    "end": 46,
+    "at": 40,
+    "end": 60,
     "label": "Planning + execution",
-    "text": "The orchestrator matches those requirements to a registry of specialist models and geospatial tools. It builds the smallest valid workflow. Application code checks allowed parameters and dependencies, while missing inputs trigger clarification rather than an unsupported analysis."
+    "text": "The orchestrator uses the task and validated metadata to select a compatible model or tool from the capability registry. Here, scene description selects the visual-language model. It orders the required steps, checks their inputs and parameters, and passes each output to the next step."
   },
   {
-    "at": 46,
-    "end": 58,
+    "at": 60,
+    "end": 81,
     "label": "Models + GIS",
-    "text": "Specialist models provide visual and semantic interpretation. GIS tools handle numerical operations. For example, an area estimate comes from a georeferenced mask and valid pixel areas, not from a language model guessing a number."
+    "text": "Models interpret the imagery, while geospatial tools calculate measurements when needed. For an area question, the system sums the ground areas of valid pixels inside a mask. On a ten-metre square grid, one hundred selected pixels represent one hectare. The result retains the mask, method and excluded regions."
   },
   {
-    "at": 58,
-    "end": 71,
+    "at": 81,
+    "end": 100,
     "label": "Evidence engine",
-    "text": "The evidence engine links each conclusion to its source and supporting output. It checks coverage and records conflicting sensor evidence. Model confidence, data quality and agreement are distinct signals; they are not combined into an arbitrary accuracy percentage."
+    "text": "The evidence engine connects each claim to the observation and output that support it. It keeps usable coverage, model confidence and agreement between sensors as separate signals. Missing coverage or conflicting evidence is carried into the answer as a limitation."
   },
   {
-    "at": 71,
-    "end": 80,
+    "at": 100,
+    "end": 111,
     "label": "Answer + trace",
     "text": "The user receives a plain-language answer, relevant visual evidence and an execution record: which observations, models, tools and parameters produced the result."
   },
   {
-    "at": 80,
-    "end": 103,
+    "at": 111,
+    "end": 135,
     "label": "Model development",
     "text": "Our adaptation plan starts with Qwen three V L, an eight-billion-parameter backbone, using parameter-efficient tuning and BigEarthNet dot txt. Candidate versions are evaluated on held-out tasks, including base-versus-adapted and single-versus-paired comparisons. These development tests determine which versions enter the registry. At runtime, the orchestrator selects by task and sensor compatibility."
   }
 ];
-const BASE=103,$=id=>document.getElementById(id),audio=new Audio(),params=new URLSearchParams(location.search);
+const BASE=135,$=id=>document.getElementById(id),audio=new Audio(),params=new URLSearchParams(location.search);
 let duration=BASE,time=0,playing=false,last=0,frame=0,active=-1,url='',countTimer=0;
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n)),stamp=n=>`${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 const card=(text,small='',cls='')=>`<div class="card ${cls}"><strong>${text}</strong>${small?`<small>${small}</small>`:''}</div>`;
 const enter=(html,at=0,cls='')=>`<div class="reveal ${cls}" data-at="${at}">${html}</div>`;
 const arrow=(at=0)=>enter('<div class="arrow">→</div>',at);
 const row=(html,cls='')=>`<div class="row ${cls}">${html}</div>`;
-function pixels(mask=false){return `<div class="pixels" role="img" aria-label="Abstract raster diagram">${Array.from({length:64},(_,i)=>`<i style="background:${mask?([10,11,18,19,20,26,27,28,35,36,43,44].includes(i)?'#50d7ca':'#233442'):['#1c4650','#50796a','#789278','#355a5c','#9fa88a'][(i*7+Math.floor(i/8)*3)%5]}"></i>`).join('')}</div>`;}
+const node=(id,html)=>`<div class="flow-node" data-node="${id}">${html}</div>`;
+const connections=()=>'<svg class="flow-connectors" viewBox="0 0 1920 1080" aria-hidden="true"><defs><marker id="flow-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="context-stroke" stroke-width="1.5"/></marker></defs><g class="flow-paths"></g></svg>';
+const edges={
+  2:[['understanding','description',true],['understanding','change'],['understanding','cross']],
+  3:[['planner','vlm',true],['planner','temporal'],['planner','sar'],['planner','gis']],
+  5:[['sources','engine',true],['outputs','engine',true],['engine','coverage',true],['engine','agreement',true],['engine','uncertainty',true]]
+};
+function drawConnections(index){
+ const group=document.querySelector('.flow-paths');if(!group)return;
+ const stage=$('stage').getBoundingClientRect(),scale=stage.width/1920;
+ const box=id=>{const el=document.querySelector(`[data-node="${id}"] .card`),r=el.getBoundingClientRect();return {x:(r.left+r.width/2-stage.left)/scale,top:(r.top-stage.top)/scale,bottom:(r.bottom-stage.top)/scale,opacity:Number(el.closest('.reveal').style.opacity)}};
+ group.innerHTML=[...edges[index]].sort((a,b)=>Number(!!a[2])-Number(!!b[2])).map(([from,to,selected])=>{const a=box(from),b=box(to),mid=(a.bottom+b.top)/2;return `<path data-from="${from}" data-to="${to}" class="${selected?'chosen':'available'}" opacity="${Math.min(a.opacity,b.opacity)}" d="M ${a.x} ${a.bottom} V ${mid} H ${b.x} V ${b.top-4}" marker-end="url(#flow-tip)"/>`}).join('');
+}
+function pixels(mask=false){const size=mask?12:8;return `<div class="pixels" style="grid-template-columns:repeat(${size},1fr)" role="img" aria-label="${mask?'Illustrative mask with one hundred selected pixels':'Abstract raster diagram'}">${Array.from({length:size*size},(_,i)=>`<i style="background:${mask?(i%size>0&&i%size<11&&Math.floor(i/size)>0&&Math.floor(i/size)<11?'#50d7ca':'#233442'):['#1c4650','#50796a','#789278','#355a5c','#9fa88a'][(i*7+Math.floor(i/8)*3)%5]}"></i>`).join('')}</div>`;}
 const file=()=>`<div class="card file">${pixels()}<strong>Observation.tif</strong></div>`;
 const templates=[
 ()=>`<div class="composition opening">${enter('<div class="card query"><small>QUESTION</small><strong id="typed"></strong><span class="cursor"></span></div>',0)}${enter(file(),1.5,'file-arrival')}</div>`,
 ()=>`<div class="composition">${row(enter(file(),0)+arrow(.7)+enter(card('GeoTIFF ingestion','Original arrays + metadata','primary'),.7)+arrow(2)+enter(card('Validation','Task-dependent checks'),2))}<div class="row details">${['Bands','Sensor + dates','Coverage','Alignment'].map((x,i)=>enter(card(x),3+i*.8)).join('')}</div>${enter('<div class="under">Missing evidence → ask the user</div>',8)}</div>`,
-()=>`<div class="composition">${row(enter(card('Question'),0)+arrow(.3)+enter(card('Query understanding','Task + required inputs','primary'),.5))}<div class="branches">${enter(card('Scene description','One observation','selected'),2)}${enter(card('Change analysis','Two acquisition dates'),3)}${enter(card('Cross-modal analysis','Optical + SAR pair'),4)}</div></div>`,
-()=>`<div class="composition planning">${row(enter(card('Intent + metadata'),0)+arrow(.3)+enter(card('Orchestrator','Select · sequence · execute','primary'),.6))}<div class="bus">${enter('<div class="bus-line"></div>',1)}</div><div class="branches">${['Visual-language model','Temporal specialist','Optical–SAR analysis','GIS tools'].map((x,i)=>enter(card(x,i===0?'Selected for scene description':'',i===0?'selected':''),1.5+i*.35)).join('')}</div>${enter(row(card('Input requirements')+card('Permitted parameters')+card('Dependencies'),'details'),6)}${enter('<div class="under">Approved capability registry</div>',4)}</div>`,
-()=>`<div class="composition">${row(enter(card('Specialist models','Interpret imagery','primary'),0)+enter(card('Geospatial tools','Calculate from source data','primary'),1),'twins')}${enter('<div class="example-label">Area calculation</div>',3)}${row(enter('<div class="card mask">'+pixels(true)+'<small>Valid mask pixels</small></div>',3)+enter('<div class="operator">×</div>',4)+enter(card('Pixel area','From the georeferencing'),4.4)+arrow(5.2)+enter(card('Measured area','Units + valid coverage','selected'),5.5),'measurement')}</div>`,
-()=>`<div class="composition evidence">${row(enter(card('Source observations'),0)+enter(card('Model / tool outputs'),.7))}${enter('<div class="vertical-line"></div>',1)}${enter(card('Evidence engine','Connect claims to supporting outputs','primary'),1.5)}<div class="branches">${enter(card('Coverage','Usable / excluded regions'),3)}${enter(card('Agreement','Sensor conflicts'),4)}${enter(card('Uncertainty','Task-specific evidence'),5)}</div>${enter('<div class="under">Claim → source → method</div>',8)}</div>`,
+()=>`${connections()}<div class="composition understanding">${row(enter(card('Question'),0)+arrow(.3)+enter(node('understanding',card('Query understanding','Task + required inputs','primary')),.5),'planner-input')}<div class="branches">${enter(node('description',card('Scene description','One observation','selected')),2)}${enter(node('change',card('Change analysis','Two acquisition dates')),3)}${enter(node('cross',card('Cross-modal analysis','Optical + SAR pair')),4)}</div></div>`,
+()=>`${connections()}<div class="composition planning">${row(enter(card('Intent + metadata'),0)+arrow(.3)+enter(node('planner',card('Orchestrator','Select · sequence · execute','primary')),.6),'planner-input')}<div class="branches">${['Visual-language model','Temporal specialist','Optical–SAR analysis','GIS tools'].map((x,i)=>enter(node(['vlm','temporal','sar','gis'][i],card(x,i===0?'Selected for scene description':'',i===0?'selected':'')),1.5+i*.35)).join('')}</div>${enter(row(card('Input requirements')+card('Permitted parameters')+card('Dependencies'),'details'),6)}${enter('<div class="under">Capability registry</div>',4)}</div>`,
+()=>`<div class="composition">${row(enter(card('Specialist models','Interpret imagery','primary'),0)+enter(card('Geospatial tools','Calculate from source data','primary'),1),'twins')}${enter('<div class="example-label">For an area question</div>',3)}${row(enter('<div class="card mask">'+pixels(true)+'<small>Valid mask pixels</small></div>',3)+enter('<div class="operator">×</div>',4)+enter(card('Pixel area','From the georeferencing'),4.4)+arrow(5.2)+enter(card('Measured area','Units + valid coverage','selected'),5.5),'measurement')}${enter('<div class="under area-example">100 pixels × 100 m² = 1 hectare</div>',7)}</div>`,
+()=>`${connections()}<div class="composition evidence">${row(enter(node('sources',card('Source observations')),0)+enter(node('outputs',card('Model / tool outputs')),.7),'evidence-inputs')}${enter(node('engine',card('Evidence engine','Connect claims to supporting outputs','primary')),1.5,'evidence-core')}<div class="branches">${enter(node('coverage',card('Coverage','Usable / excluded regions')),3)}${enter(node('agreement',card('Agreement','Sensor conflicts')),4)}${enter(node('uncertainty',card('Uncertainty','Task-specific evidence')),5)}</div>${enter('<div class="under">Claim → source → method</div>',8)}</div>`,
 ()=>`<div class="composition answer">${enter('<div class="answer-sheet"><div class="answer-title">Answer</div><div class="skeleton long"></div><div class="skeleton"></div><div class="skeleton short"></div><div class="source-link">Source-linked evidence</div></div>',.3)}${enter('<div class="trace-sheet"><strong>Execution trace</strong><div>Observations</div><div>Model + tool versions</div><div>Parameters + outputs</div></div>',1.5)}</div>`,
 ()=>`<div class="composition development">${enter('<div class="example-label">Adaptation & evaluation plan</div>',0)}${row(enter(card('Qwen3-VL · 8B','Candidate backbone','primary'),.5)+enter('<div class="operator">+</div>',1)+enter(card('LoRA / QLoRA','Parameter-efficient adaptation'),1.5)+enter('<div class="operator">←</div>',2)+enter(card('BigEarthNet.txt','Paired sensor supervision'),2.5))}${enter(row(card('Base ↔ adapted')+card('Single ↔ paired'),'details'),7)}${enter(row(card('Held-out evaluation')+arrow(0)+card('Approved registry','Task + sensor compatibility','selected'),'closing-flow'),12)}</div>`
 ];
@@ -88,6 +101,7 @@ function draw(){
   const horizontal=n.classList.contains('file-arrival')?100:0;
   n.style.transform=`translate(${(1-e)*horizontal}px,${(1-e)*(horizontal?0:34)}px) scale(${.97+.03*e})`;
  });
+ drawConnections(i);
  if($('typed')){
   const q='Describe the land cover in this image.';
   $('typed').textContent=q.slice(0,Math.floor(clamp((local-.2)/3)*q.length));

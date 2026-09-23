@@ -12,22 +12,24 @@ Use 1920 × 1080, 30 or 60 fps. Record view provides a three-second countdown an
 
 Space plays/pauses; R restarts; arrows seek; Escape leaves fullscreen. Local audio upload and Fit to voice scale the timeline. For precise sync, record chapters separately and extend still holds in the editor. Use Agrani's original audio, not doubled browser audio. No decorative labels or technical footnotes over the footage.
 
-Clean link: `/agrani-motion-v2.html?clean=1&autoplay=1`. Pause at a cue with `?clean=1&t=38`. Overall duration can be changed with `&duration=115`.
+Clean link: `/agrani-motion-v2.html?clean=1&autoplay=1`. Pause on the orchestrator with `?clean=1&t=55`. Overall duration defaults to 135 seconds and can be changed with `&duration=140`.
 
 ## Cue sheet
 
 | Base time | Focal action | PPT mapping |
 |---|---|---|
-| 0–9 | Short question types; TIFF joins it | Interface |
-| 9–22 | File → ingestion → validation; metadata checks follow | Ingestion & validation |
-| 22–32 | Question → task and required inputs | Query understanding |
-| 32–46 | Orchestrator selects scene-description capability from registry | Planner & executor |
-| 46–58 | Models interpret; a separate area-calculation example shows valid mask × pixel area | Models & GIS |
-| 58–71 | Sources + outputs → evidence engine; coverage, agreement, uncertainty | Evidence engine |
-| 71–80 | Abstract answer and auditable trace | Answer & trace |
-| 80–103 | Candidate VLM + adaptation; evaluation gates registry entry | Model-development plan |
+| 0–10 | Short question types; TIFF joins it | Interface |
+| 10–27 | File → ingestion → validation; metadata checks follow | Ingestion & validation |
+| 27–40 | Question → task and required inputs | Query understanding |
+| 40–60 | Orchestrator selects scene-description capability from registry | Planner & executor |
+| 60–81 | Models interpret; a separate area-calculation example shows valid mask × pixel area | Models & GIS |
+| 81–100 | Sources + outputs → evidence engine; coverage, agreement, uncertainty | Evidence engine |
+| 100–111 | Abstract answer and auditable trace | Answer & trace |
+| 111–135 | Candidate VLM + adaptation; evaluation gates registry entry | Model-development plan |
 
-The area example illustrates how numerical evidence is calculated when requested; the opening scene-description question does not require an area measurement. Abstract rasters and answer lines are diagrams, not purported inference outputs. Use actual application footage for demonstrated results.
+The area example illustrates how numerical evidence is calculated when requested; the opening scene-description question does not require an area measurement. The example assumes a square ten-metre ground grid: 100 valid mask pixels × 100 square metres = 10,000 square metres, or one hectare. Abstract rasters and answer lines are diagrams, not purported inference outputs. Use actual application footage for demonstrated results.
+
+The highlighted connector follows the selected scene-description route. The other registry branches remain subdued. Arrows run from the orchestrator's bottom edge into the top edge of each capability; in the evidence scene, both sources and outputs feed the engine before its checks appear. Keep these connections visible in the edit.
 
 ## Scientific points retained for discussion
 

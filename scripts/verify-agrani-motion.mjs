@@ -20,6 +20,18 @@ try {
   assert.equal(await page.locator('#stage header, #stage footer, #stage .edition').count(),0);
   const overflow=await page.locator('#scene').evaluate(el=>[...el.querySelectorAll('.card,.answer-sheet,.trace-sheet')].filter(n=>{const r=n.getBoundingClientRect(),s=document.querySelector('#stage').getBoundingClientRect();return r.left<s.left||r.right>s.right||r.bottom>s.bottom}).length);
   assert.equal(overflow,0,`Overflow scene ${i}`);
+  if([2,3,5].includes(i)){
+   const detached=await page.evaluate(()=>{
+    const s=document.querySelector('#stage').getBoundingClientRect(),scale=s.width/1920;
+    return [...document.querySelectorAll('.flow-paths path')].filter(path=>{
+     const from=document.querySelector(`[data-node="${path.dataset.from}"] .card`).getBoundingClientRect(),to=document.querySelector(`[data-node="${path.dataset.to}"] .card`).getBoundingClientRect();
+     const start=path.getPointAtLength(0),end=path.getPointAtLength(path.getTotalLength());
+     return Math.abs(start.x-(from.left+from.width/2-s.left)/scale)>1||Math.abs(start.y-(from.bottom-s.top)/scale)>1||Math.abs(end.x-(to.left+to.width/2-s.left)/scale)>1||Math.abs(end.y+4-(to.top-s.top)/scale)>1||end.y<=start.y;
+    }).length;
+   });
+   assert.equal(detached,0,`Detached or reversed connector in scene ${i}`);
+   assert.equal(await page.locator('.flow-paths path').count(),i===2?3:i===3?4:5);
+  }
   await page.screenshot({path:`output/motion-v2-qa/${i+1}.png`});
  }
  await page.goto(`${base}/agrani-motion-v2.html`);

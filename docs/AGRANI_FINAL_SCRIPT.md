@@ -8,7 +8,7 @@
 
 ## Delivery
 
-Allow roughly 105–125 seconds at a comfortable pace. Read headings silently. Qwen: “kwen”; VL: “vee el”; GeoTIFF: “geo tiff”; GIS: “gee eye ess”; SAR: “sar”; BigEarthNet.txt: “Big Earth Net dot text”. Retake the complete sentence if you stumble.
+Allow roughly 130–145 seconds at a comfortable pace. The animation defaults to 135 seconds and can be fitted to your voice take. Read headings silently. Qwen: “kwen”; VL: “vee el”; GeoTIFF: “geo tiff”; GIS: “gee eye ess”; SAR: “sar”; BigEarthNet.txt: “Big Earth Net dot text”. Retake the complete sentence if you stumble.
 
 The first seven sections explain the architecture. The last is explicitly the adaptation plan, not a claim of completed training. No on-screen logo, watermark, version label or corner caption appears in the recorded animation.
 
@@ -26,15 +26,15 @@ Query understanding identifies the requested task and required evidence. A scene
 
 ## 4. Planning + execution
 
-The orchestrator matches those requirements to a registry of specialist models and geospatial tools. It builds the smallest valid workflow. Application code checks allowed parameters and dependencies, while missing inputs trigger clarification rather than an unsupported analysis.
+The orchestrator uses the task and validated metadata to select a compatible model or tool from the capability registry. Here, scene description selects the visual-language model. It orders the required steps, checks their inputs and parameters, and passes each output to the next step.
 
 ## 5. Models + GIS
 
-Specialist models provide visual and semantic interpretation. GIS tools handle numerical operations. For example, an area estimate comes from a georeferenced mask and valid pixel areas, not from a language model guessing a number.
+Models interpret the imagery, while geospatial tools calculate measurements when needed. For an area question, the system sums the ground areas of valid pixels inside a mask. On a ten-metre square grid, one hundred selected pixels represent one hectare. The result retains the mask, method and excluded regions.
 
 ## 6. Evidence engine
 
-The evidence engine links each conclusion to its source and supporting output. It checks coverage and records conflicting sensor evidence. Model confidence, data quality and agreement are distinct signals; they are not combined into an arbitrary accuracy percentage.
+The evidence engine connects each claim to the observation and output that support it. It keeps usable coverage, model confidence and agreement between sensors as separate signals. Missing coverage or conflicting evidence is carried into the answer as a limitation.
 
 ## 7. Answer + trace
 
@@ -43,4 +43,3 @@ The user receives a plain-language answer, relevant visual evidence and an execu
 ## 8. Model development
 
 Our adaptation plan starts with Qwen three V L, an eight-billion-parameter backbone, using parameter-efficient tuning and BigEarthNet dot txt. Candidate versions are evaluated on held-out tasks, including base-versus-adapted and single-versus-paired comparisons. These development tests determine which versions enter the registry. At runtime, the orchestrator selects by task and sensor compatibility.
-
