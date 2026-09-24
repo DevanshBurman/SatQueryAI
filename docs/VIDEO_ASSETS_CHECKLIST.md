@@ -12,7 +12,7 @@ You do not need to supply all visual assets. The prototype includes a generated 
 
 ## Asset labels
 
-- `public/hero-floodplain.png`: AI-generated illustration. Do not present it as a real Sentinel observation.
+- `frontend/public/hero-floodplain.png`: AI-generated illustration. Do not present it as a real Sentinel observation.
 - `backend/data/demo_before.tif` and `demo_after.tif`: synthetic georeferenced test data. Quantitative calculations operate on these files, not the landing-page background.
 - Current landing overlays, dates and places illustrate the proposed experience. They are not verified flood observations.
 - Current workspace narrative is prepared output. An adapted remote-sensing VLM is not connected yet.

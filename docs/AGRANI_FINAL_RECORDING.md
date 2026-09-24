@@ -4,7 +4,7 @@
 
 - Narration: `AGRANI_FINAL_SCRIPT.md`. Every spoken paragraph is verified against the embedded browser script.
 - Browser: `/agrani-motion.html` (redirects to the current implementation). Filenames may retain v2 internally; no version marks or branding appear in the frame.
-- Standalone assets: `public/agrani-motion-v2.html`, `.css`, `.js` together in one folder. No external assets or network libraries required.
+- Standalone assets: `frontend/public/agrani-motion-v2.html`, `.css`, `.js` together in one folder. No external assets or network libraries required.
 
 ## Capture
 

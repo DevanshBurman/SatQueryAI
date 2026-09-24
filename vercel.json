@@ -15,7 +15,7 @@
   ],
   "functions": {
     "api/**/*.py": {
-      "excludeFiles": "{node_modules/**,dist/**,output/**,design-concepts/**,design-references/**,scripts/**,test-results/**,public/**,src/**}",
+      "excludeFiles": "{node_modules/**,dist/**,output/**,design-concepts/**,design-references/**,scripts/**,test-results/**,frontend/**}",
       "includeFiles": "backend/samples/**"
     }
   }

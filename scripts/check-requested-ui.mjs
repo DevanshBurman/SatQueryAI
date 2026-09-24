@@ -43,7 +43,7 @@ try {
   assert.ok((await page.getByText('Computed live', { exact: true }).count()) > 0)
   await page.screenshot({ path: 'output/geo-connected.png' })
 
-  await geoInput.setInputFiles('public/hero-floodplain.png')
+  await geoInput.setInputFiles('frontend/public/hero-floodplain.png')
   await page.getByRole('heading', { name: 'Non-georeferenced image' }).waitFor()
   await page.getByText('visual inspection only', { exact: true }).waitFor()
   console.log('PASS: connected GeoTIFF and non-georeferenced image workflows')

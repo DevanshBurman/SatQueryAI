@@ -1,5 +1,7 @@
 # SatQuery AI — Prototype + Final Presentation Handoff
 
+> Historical handoff. File locations and implementation-status notes below reflect an earlier checkout. Start with [the document index](README.md) and inspect current code before acting.
+
 ## Situation
 
 The team has **passed its college internal SIH round** for the SIH 2026 problem statement `SIH26167` (ISRO/SAC). The next submission needs:

@@ -1,5 +1,7 @@
 # SatQueryAI prototype continuation handout
 
+> Historical handoff. This describes an earlier UI baseline; use the current code and [recording readiness](RECORDING_READY.md) for present capabilities. Frontend source now lives under `frontend/src/`.
+
 ## Purpose of this handout
 
 This repository is a frontend-first satellite-imagery and geospatial-analysis prototype for **SatQuery AI**. It is intended to make the problem statement easy to understand in a demo while showing a credible path to real imagery, deterministic GIS tools, and later VLM-powered answers.
@@ -160,4 +162,3 @@ The next credible milestone is **not** “a working AI chatbot.” It is:
 - catalog search returns real Sentinel metadata for a selected AOI/date;
 - every result has a source, status and clear disclosure;
 - prepared demo material is visually strong but never confused with live inference.
-

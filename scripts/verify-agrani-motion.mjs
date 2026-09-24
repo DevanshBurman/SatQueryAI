@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 const base=process.env.MOTION_URL||'http://127.0.0.1:5174';
+const qaDir=process.env.MOTION_QA_DIR||'output/motion-v2-qa';
 const browser=await chromium.launch({headless:true,channel:'msedge'});
 try {
  const page=await browser.newPage({viewport:{width:1920,height:1080}}),errors=[];
@@ -13,7 +14,7 @@ try {
  const script=readFileSync('docs/AGRANI_FINAL_SCRIPT.md','utf8');
  const scenes=await page.evaluate(()=>chapters);
  scenes.forEach(c=>assert.ok(script.includes(c.text),`Narration mismatch: ${c.label}`));
- mkdirSync('output/motion-v2-qa',{recursive:true});
+ mkdirSync(qaDir,{recursive:true});
  for(let i=0;i<scenes.length;i++){
   await page.goto(`${base}/agrani-motion-v2.html?clean=1&t=${scenes[i].end-1}`);
   assert.ok(await page.locator('#scene .card, #scene .answer-sheet').count()>0);
@@ -32,7 +33,7 @@ try {
    assert.equal(detached,0,`Detached or reversed connector in scene ${i}`);
    assert.equal(await page.locator('.flow-paths path').count(),i===2?3:i===3?4:5);
   }
-  await page.screenshot({path:`output/motion-v2-qa/${i+1}.png`});
+  await page.screenshot({path:`${qaDir}/${i+1}.png`});
  }
  await page.goto(`${base}/agrani-motion-v2.html`);
  await page.locator('#duration').fill('30');await page.locator('#duration').dispatchEvent('change');

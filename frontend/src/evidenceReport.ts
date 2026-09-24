@@ -33,7 +33,10 @@ export function createEvidenceReport(report: Report) {
   function paragraph(value: string, options: { x?: number; width?: number; size?: number; leading?: number; color?: [number, number, number]; bold?: boolean } = {}) {
     const { x = 20, width = 170, size = 10, leading = 5.5, color = navy, bold = false } = options
     pdf.setFont('helvetica', bold ? 'bold' : 'normal'); pdf.setTextColor(...color)
-    for (const line of lines(value, width, size)) {
+    const wrapped = lines(value, width, size)
+    // Keep a paragraph on one page when it fits; only split unusually long blocks.
+    if (wrapped.length * leading <= 240) ensure(wrapped.length * leading)
+    for (const line of wrapped) {
       ensure(leading)
       pdf.text(line, x, y)
       y += leading

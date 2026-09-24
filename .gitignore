@@ -10,3 +10,6 @@ backend/data/
 .env.local
 output/studio/
 test-results/
+tmp/
+tsconfig.tsbuildinfo
+output/motion-v2-qa/

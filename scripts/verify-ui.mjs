@@ -24,7 +24,7 @@ try {
   const boundaryChoice = page.locator('.library-picker label').filter({ hasText: 'District AOI boundary' }).locator('input')
   await boundaryChoice.check()
   await page.getByText('3 ready', { exact: true }).waitFor()
-  await page.locator('.input-actions input[type=file]').setInputFiles('public/hero-floodplain.png')
+  await page.locator('.input-actions input[type=file]').setInputFiles('frontend/public/hero-floodplain.png')
   await page.getByText('hero-floodplain.png', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Remove hero-floodplain.png' }).click()
   await boundaryChoice.uncheck()
