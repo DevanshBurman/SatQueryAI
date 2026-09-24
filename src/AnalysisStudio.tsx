@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { ArrowRight, Bot, Check, ChevronDown, Download, Layers3, LoaderCircle, Plus, Search, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X } from 'lucide-react'
 import { analyzeWaterChange, type CatalogScene } from './api'
 import { supabase } from './supabase'
@@ -74,6 +74,9 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   const [tour, setTour] = useState(false)
   const [welcome, setWelcome] = useState(true)
   const [reading, setReading] = useState(false)
+  const [hasAsked, setHasAsked] = useState(false)
+  const [dropActive, setDropActive] = useState(false)
+  const dropDepth = useRef(0)
   useEffect(() => {
     if (!reading) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setReading(false) }
@@ -161,12 +164,13 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       add(loaded)
     } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
-  async function upload(files: FileList | null) {
+  async function upload(files: FileList | File[] | null) {
     if (!files?.length) return
     setBusy('Reading raster metadata and previews'); setError('')
     try {
       const items: Evidence[] = []
       for (const file of Array.from(files)) {
+        if (!/\.(tiff?|png|jpe?g)$/i.test(file.name)) throw new Error('Upload GeoTIFF, TIFF, PNG or JPEG files only.')
         if (/\.(png|jpe?g)$/i.test(file.name)) {
           if (file.size > 2_000_000) throw new Error('Use a PNG or JPEG smaller than 2 MB.')
           const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Could not read this image.')); reader.readAsDataURL(file) })
@@ -179,6 +183,28 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
       }
       add(items)
     } catch (e) { setError((e as Error).message) } finally { setBusy(''); if (fileInput.current) fileInput.current.value = '' }
+  }
+  function enterDrop(event: DragEvent<HTMLElement>) {
+    if (busy || !event.dataTransfer.types.includes('Files')) return
+    event.preventDefault()
+    dropDepth.current += 1
+    setDropActive(true)
+  }
+  function overDrop(event: DragEvent<HTMLElement>) {
+    if (busy || !event.dataTransfer.types.includes('Files')) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+  function leaveDrop(event: DragEvent<HTMLElement>) {
+    if (!event.dataTransfer.types.includes('Files')) return
+    dropDepth.current = Math.max(0, dropDepth.current - 1)
+    if (!dropDepth.current) setDropActive(false)
+  }
+  function receiveDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault()
+    dropDepth.current = 0
+    setDropActive(false)
+    if (!busy) void upload(event.dataTransfer.files)
   }
   function toggle(id: string) {
     setSelected(previous => previous.includes(id) ? previous.filter(v => v !== id) : [...previous, id].slice(-2))
@@ -197,6 +223,7 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
   async function run() {
     setError(''); setPlan(undefined)
     if (!query.trim()) { setError('Ask a question first.'); return }
+    setHasAsked(true)
     if (!chosen.length || chosen.some(item => !item.file)) { setError('Upload an image or load the Sentinel sample. Catalog references need their matching imagery.'); return }
     const question = query.trim()
     const started = performance.now()
@@ -266,15 +293,15 @@ export default function AnalysisStudio({ scenes, discover, saveQuery }: { scenes
         {chosen.length === 2 && <button className="studio-add" onClick={() => {setSelected(v => [...v].reverse());setPlan(undefined);setAnswers([])}}>Swap earlier / later</button>}
       </aside>}
       </div>
-      <main className="studio-evidence"><div className="studio-view-toolbar"><span><Layers3 size={16}/>{shown ? shown.date || 'Source observation' : 'Evidence canvas'}</span><div>{chosen.length === 2 && <button className={compare ? 'active' : ''} onClick={() => setCompare(v => !v)}>Compare</button>}{latest?.maskPng && <button className={overlay ? 'active' : ''} onClick={() => setOverlay(v => !v)}>Water overlay</button>}</div></div>
-        {shown?.file && shown.modality === 'optical' && /\.tiff?$/i.test(shown.file.name) && <div className="studio-band-presets"><span>Band view</span>{[['rgb','True colour'],['false-color','False colour'],['ndvi','NDVI'],['ndwi','NDWI']].map(([id,label]) => <button key={id} disabled={!!busy} onClick={() => void renderPreset(id)}>{label}</button>)}<small>{rendered?.id === shown.id ? rendered.note : 'B02 / B03 / B04 / B08 required'}</small></div>}<div className="studio-canvas">{busy && /catalogue|GeoTIFF|raster metadata/i.test(busy) ? <div className="studio-raster-loading" role="status" aria-live="polite"><div className="studio-raster-skeleton" aria-hidden="true"><i/><i/><i/><i/></div><div className="studio-raster-loading-copy"><LoaderCircle size={22}/><span>{busy.includes('GeoTIFF') ? 'Attaching source imagery' : 'Preparing source imagery'}</span><small>{busy} · {elapsed}s</small><p>{busy.includes('GeoTIFF') ? 'Downloading the original raster files. Every preview and source record stays linked to its observation.' : 'Reading the prepared collection metadata and display previews.'}</p></div></div> : shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : rendered?.id === shown.id ? rendered.image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Start with an observation.</h2><p>Upload GeoTIFF, TIFF, PNG or JPEG, then ask about your selected imagery.</p><button onClick={() => setInputsOpen(true)} disabled={!!busy}>Add observations<ArrowRight size={17}/></button></div>}</div>
+      <main className={`studio-evidence ${dropActive ? 'studio-drop-active' : ''}`} onDragEnter={enterDrop} onDragOver={overDrop} onDragLeave={leaveDrop} onDrop={receiveDrop}><div className="studio-view-toolbar"><span><Layers3 size={16}/>{shown ? shown.date || 'Source observation' : 'Evidence canvas'}</span><div>{chosen.length === 2 && <button className={compare ? 'active' : ''} onClick={() => setCompare(v => !v)}>Compare</button>}{latest?.maskPng && <button className={overlay ? 'active' : ''} onClick={() => setOverlay(v => !v)}>Water overlay</button>}</div></div>
+        {shown?.file && shown.modality === 'optical' && /\.tiff?$/i.test(shown.file.name) && <div className="studio-band-presets"><span>Band view</span>{[['rgb','True colour'],['false-color','False colour'],['ndvi','NDVI'],['ndwi','NDWI']].map(([id,label]) => <button key={id} disabled={!!busy} onClick={() => void renderPreset(id)}>{label}</button>)}<small>{rendered?.id === shown.id ? rendered.note : 'B02 / B03 / B04 / B08 required'}</small></div>}<div className="studio-canvas">{busy && /catalogue|GeoTIFF|raster metadata/i.test(busy) ? <div className="studio-raster-loading" role="status" aria-live="polite"><div className="studio-raster-skeleton" aria-hidden="true"><i/><i/><i/><i/></div><div className="studio-raster-loading-copy"><LoaderCircle size={22}/><span>{busy.includes('GeoTIFF') ? 'Attaching source imagery' : 'Preparing source imagery'}</span><small>{busy} · {elapsed}s</small><p>{busy.includes('GeoTIFF') ? 'Downloading the original raster files. Every preview and source record stays linked to its observation.' : 'Reading the prepared collection metadata and display previews.'}</p></div></div> : shown?.image ? <><img className="studio-raster" src={compare && chosen[1]?.image ? chosen[1].image : rendered?.id === shown.id ? rendered.image : shown.image} alt="Selected source evidence"/>{compare && chosen[0]?.image && <img className="studio-raster compare-image" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} src={chosen[0].image} alt="Earlier observation"/>}{latest?.maskPng && latest.maskSourceId === shown.id && overlay && !compare && <img className="studio-raster studio-mask" src={latest.maskPng} alt="Computed water candidate mask"/>}<span className="studio-image-label">{compare ? `${chosen[0]?.date} ← → ${chosen[1]?.date}` : shown.label}</span></> : <div className="studio-empty"><div><Layers3 size={32}/></div><h2>Start with an observation.</h2><p>Drop a GeoTIFF, TIFF, PNG or JPEG here, or add observations.</p><button onClick={() => setInputsOpen(true)} disabled={!!busy}>Add observations<ArrowRight size={17}/></button></div>}{dropActive && <div className="studio-drop-overlay" role="status"><Upload size={28}/><strong>Drop observations to add them</strong><span>GeoTIFF · TIFF · PNG · JPEG</span></div>}</div>
         {compare && <label className="studio-slider">Earlier<input aria-label="Before after comparison" type="range" min="0" max="100" value={split} onChange={e => setSplit(+e.target.value)}/>Later</label>}
         <div className="studio-provenance"><ShieldCheck size={17}/><div><b>{shown?.source || 'Source-linked evidence'}</b><p>{shown?.processing || 'Original files stay in this session. Selected inputs are reused for every question.'}</p></div></div>
         <details className="studio-advanced"><summary><SlidersHorizontal size={15}/>Advanced water parameters</summary><div><label>Green band<input type="number" min="1" max="16" value={green} onChange={e => setGreen(+e.target.value)}/></label><label>NIR band<input type="number" min="1" max="16" value={nir} onChange={e => setNir(+e.target.value)}/></label><label>NDWI threshold<input type="number" min="-1" max="1" step=".05" value={threshold} onChange={e => setThreshold(+e.target.value)}/></label></div><p>These controls change the actual calculation. Use surface reflectance with the correct scale and offset.</p></details>
       </main>
       {reading && <button className="studio-reading-backdrop" aria-label="Return to imagery" onClick={() => setReading(false)}/>}
       <aside className={`studio-assistant ${reading ? 'studio-reading' : ''}`} aria-label="SatQuery conversation"><div className="studio-panel-title"><h2><Sparkles size={18}/>Ask SatQuery</h2><button className="studio-reading-toggle" onClick={() => setReading(v => !v)} aria-expanded={reading}>{reading ? 'Return to imagery' : 'Expand conversation'}{reading ? <X size={16}/> : <ArrowRight size={16}/>}</button></div>
-        <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p><div className="studio-suggestions">{prompts.map(prompt => <button key={prompt.text} onClick={() => {setQuery(prompt.text);preset(prompt.mode)}}><span><small>{prompt.tag}</small>{prompt.text}</span><ArrowRight size={14}/></button>)}</div></div>}
+        <div className="studio-conversation" ref={conversation} aria-live="polite">{!answers.length && <div className="studio-welcome"><Bot size={30}/><h2>What would you like to know?</h2><p>Ask in your own words. SatQuery chooses the workflow from your question and selected inputs.</p>{!reading && !hasAsked && <div className="studio-suggestions">{prompts.map(prompt => <button key={prompt.text} onClick={() => {setQuery(prompt.text);preset(prompt.mode)}}><span><small>{prompt.tag}</small>{prompt.text}</span><ArrowRight size={14}/></button>)}</div>}</div>}
           {answers.map((answer,index) => <article className="studio-answer" key={index}><div className="studio-user-question">{answer.query}</div><span className="studio-answer-mode"><Check size={14}/>{answer.mode}{answer.elapsedSeconds ? ` · ${answer.elapsedSeconds}s` : ''}</span><h3 className="studio-result-heading">Answer</h3><ReadableAnswer text={answer.answer}/><div className="studio-confidence"><ShieldCheck size={16}/><span><b>Evidence quality</b>Review source dates, sensor compatibility and the limitations below. Accuracy requires reference labels; no per-answer percentage is inferred.</span></div>{answer.limitations?.length ? <details open><summary>Quality & limitations<ChevronDown size={14}/></summary><ul>{answer.limitations.map(line => <li key={line}>{line}</li>)}</ul></details> : null}<details><summary>Executed tools & parameters<ChevronDown size={14}/></summary><pre>{JSON.stringify(answer.trace,null,2)}</pre></details><button className="studio-report" onClick={() => createEvidenceReport(answer).save('satquery-evidence-report.pdf')}><Download size={14}/>Download PDF evidence report</button><button className="studio-report" onClick={() => download('satquery-execution.json',JSON.stringify(answer,null,2))}>Export execution JSON</button></article>)}
           {busy && <div className="studio-progress"><LoaderCircle size={17}/>{busy}<span>{elapsed}s elapsed</span></div>}
           {error && <div className="studio-error" role="alert">{error}</div>}
